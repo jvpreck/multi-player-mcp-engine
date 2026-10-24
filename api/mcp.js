@@ -1,11 +1,11 @@
 import { createMcpHandler } from 'mcp-handler';
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenAI } from '@google/generative-ai'; // Swapped to stable package
+import { GoogleGenerativeAI } from '@google/generative-ai'; // Adjusted name here
 import { z } from 'zod';
 
 // Initialize SDK Clients using Environmental Variables
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-const ai = new GoogleGenAI(process.env.GEMINI_API_KEY);
+const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY); // Adjusted constructor name here
 
 const handler = createMcpHandler((server) => {
   server.registerTool(
