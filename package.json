@@ -1,6 +1,7 @@
 {
   "name": "multi-player-mcp-engine",
   "version": "1.0.0",
+  "type": "module",
   "main": "api/mcp.js",
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
