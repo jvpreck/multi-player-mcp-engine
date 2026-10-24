@@ -31,7 +31,7 @@ server.tool(
 
     // 2. Query Gemini 2.5 Pro behind a secure firewall using a strict JSON schema
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-pro",
+      model: "gemini-3.5-flash-lite",
       contents: `Player Action: ${characterAction}. Character Sheet: ${JSON.stringify(playerData)}. World State: ${JSON.stringify(globalState)}.`,
       config: {
         systemInstruction: "You are the hidden Master DM. Arbitrate this turn logically. You must only return raw JSON matching the required schema. Do not include narrative text outside the JSON structure.",
