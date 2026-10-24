@@ -37,13 +37,19 @@ const handler = createMcpHandler((server) => {
         World State: ${JSON.stringify(globalState)}
       `;
 
-      const response = await model.generateContent({
-        contents: prompt,
-        systemInstruction: "You are a backend RPG data referee. Do not write creative narratives. Determine the mechanical outcome and output hidden facts that their character can visibly discover. You must return a valid JSON object with the properties: success (boolean), supabasePayload (string), and visibleFactsForPlayer (string)."
+      const model = genAI.getGenerativeModel({
+        model: "gemini-3.5-flash-lite",
+        systemInstruction:
+          "You are a backend RPG data referee. Do not write creative narratives. Determine the mechanical outcome and output hidden facts that their character can visibly discover. You must return a valid JSON object with the properties: success (boolean), supabasePayload (string), and visibleFactsForPlayer (string).",
+        generationConfig: { responseMimeType: "application/json" },
       });
-
+      
+      const response = await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+      });
+      
       const outputData = JSON.parse(response.response.text() || '{}');
-
+            
       // 3. Optional: Add your custom automated Supabase mutations here
 
       // 4. Return synthetic facts package directly to the local Claude app
