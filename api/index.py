@@ -4,6 +4,7 @@ import os
 from google import genai
 from google.genai import types
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from supabase import create_client
 
 supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
@@ -16,8 +17,16 @@ SYSTEM_INSTRUCTION = (
     "success (boolean), supabasePayload (string), and visibleFactsForPlayer (string)."
 )
 
-mcp = FastMCP("multi-player-mcp-engine", stateless_http=True, json_response=True)
-
+mcp = FastMCP(
+    "multi-player-mcp-engine",
+    stateless_http=True,
+    json_response=True,
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=["multi-player-mcp-engine-sand.vercel.app", "localhost:*", "127.0.0.1:*"],
+        allowed_origins=["https://multi-player-mcp-engine-sand.vercel.app", "https://claude.ai"],
+    ),
+)
 
 @mcp.tool()
 def submit_action(playerId: str, characterAction: str) -> str:
