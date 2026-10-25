@@ -1,5 +1,7 @@
+import hmac
 import json
 import os
+from urllib.parse import parse_qs
 
 from google import genai
 from google.genai import types
@@ -57,5 +59,42 @@ def submit_action(playerId: str, characterAction: str) -> str:
     return data.get("visibleFactsForPlayer") or "Action evaluated."
 
 
+API_KEY = os.environ.get("MCP_API_KEY", "")
+
+class ApiKeyMiddleware:
+    """Reject every HTTP request that does not carry the shared API key.
+
+    The key can be sent as `Authorization: Bearer <key>`, `x-api-key: <key>`
+    or `?key=<key>` in the URL (custom connectors in Claude only let you set a URL).
+    Fails closed: with no MCP_API_KEY configured, every request is rejected.
+    Uses 403, not 401, so clients do not start an OAuth sign-in flow.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    def _authorized(self, scope) -> bool:
+        if not API_KEY:
+            return False
+        headers = {k.decode().lower(): v.decode() for k, v in scope.get("headers", [])}
+        candidates = [headers.get("x-api-key", "")]
+        auth = headers.get("authorization", "")
+        if auth.lower().startswith("bearer "):
+            candidates.append(auth[7:].strip())
+        query = parse_qs(scope.get("query_string", b"").decode())
+        candidates.extend(query.get("key", []))
+        return any(hmac.compare_digest(c.encode(), API_KEY.encode()) for c in candidates if c)
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and not self._authorized(scope):
+            body = b'{"error":"forbidden"}'
+            await send({"type": "http.response.start", "status": 403,
+                        "headers": [(b"content-type", b"application/json"),
+                                    (b"content-length", str(len(body)).encode())]})
+            await send({"type": "http.response.body", "body": body})
+            return
+        await self.app(scope, receive, send)  # lifespan events pass straight through
+
+
 # ASGI app served by Vercel; the MCP endpoint is /mcp
-app = mcp.streamable_http_app()
+app = ApiKeyMiddleware(mcp.streamable_http_app())
