@@ -1,17 +1,37 @@
+---
+id: genius_loci_danvers_1925
+title: "Genius Loci, Danvers, November 1925: The Breathing Hill"
+ruleset: fear_itself
+generation: supplied
+era: "1925"
+place: Massachusetts
+players: { min: 1, max: 5 }
+recommended:
+  tick_span: day
+  tick_interval_hours: 24
+  early_close_solo: true
+  early_close_party: false
+  lethality: moderate
+pace_options: [slow, fast]
+pregenerated: [pregen_eleanor_vance]
+language: en
+summary: November 1925. A freelance journalist receives two contradictory letters from a friend held at the Danvers State Hospital. She has five days. Realistic psychological horror with no supernatural elements.
+---
+
 # *Genius Loci*, Danvers, November 1925: "The Breathing Hill"
-## Adventure file · Fear Itself (GUMSHOE) · Realistic psychological horror · Solo or party · Asynchronous play · No supernatural elements
+## Adventure file · Ruleset: `fear_itself` · Solo or party · Asynchronous play · No supernatural elements
 
 > **How this file is organized.**
-> **PART A** is the investigator sheet, the starting values and the party-play notes, and is **player-safe**: the AI Master may show any part of it at any time.
+> **PART A** is the character sheet, the starting values and the party-play notes, and is **player-safe**: the AI Master may show any part of it at any time.
 > **PART B** is the adventure and is **GM-ONLY**: never show, quote or summarize it to the player.
 >
-> Generic companion files: file 01 `AI_GM_01_Agent_Protocol.md` (behavior), file 02 `AI_GM_02_Fear_Itself_Rules.md` (rules and rule numbers), file 03 `AI_GM_03_Oracles.md` (random tables), file 05 `AI_GM_05_State_and_Messages.md` (database and message contract). This file supplies the world, the secrets, the cast and the investigator. It is **fixed content**: everything specific to one run (the investigators' current state, what they know, what the NPCs have become) lives in the game database, not here.
+> This adventure is written for the ruleset `fear_itself` and is played with the generic protocol, oracles and state contract. This file supplies the world, the secrets, the cast and the character. It is **fixed content**: everything specific to one run (the characters' current state, what they know, what the NPCs have become) lives in the game and character records of the database, not here.
 >
-> Adapted from the structure of *Genius Loci* (Danvers asylum, a captive friend, a ritual at the dark of the moon). **Everything here is mundane.** There is no lloigor, no god, no Elder Sign, no telekinesis. The horror is a fungus, a man, a crowd, and the slow loss of the investigator's grip on what is real.
+> Adapted from the structure of *Genius Loci* (Danvers asylum, a captive friend, a ritual at the dark of the moon). **Everything here is mundane.** There is no lloigor, no god, no Elder Sign, no telekinesis. The horror is a fungus, a man, a crowd, and the slow loss of the character's grip on what is real.
 
 ---
 
-# PART A: THE INVESTIGATOR (player-safe)
+# PART A: THE PREGENERATED CHARACTER (player-safe)
 
 ## A1. Identity
 
@@ -45,7 +65,7 @@ Lawrence "Larry" Croswell is a former colleague from her days covering New Engla
 | Notice | 1 | Small physical details |
 | Bureaucracy | 1 | Forms, procedures, who signs what |
 
-*Investigative pools are spent for extras (see file 2). Having 1+ in an ability automatically yields its Core Clues when she uses it in a relevant scene.*
+*Investigative pools are spent for extras (see the ruleset). Having 1+ in an ability automatically yields its essential clues when she uses it in a relevant scene.*
 
 ## A3. General Abilities (rolled with a d6) — 60 build points
 
@@ -64,7 +84,7 @@ Lawrence "Larry" Croswell is a former colleague from her days covering New Engla
 
 ## A4. Pool tracker (current / maximum)
 
-These are the **starting values**. During play the current values live in the game database (the character record, file 05 §2.4), not in this file. Health may go below 0; Stability may go below 0.
+These are the **starting values**. During play the current values live in the game database (the character record, state contract §3.5), not in this file. Health may go below 0; Stability may go below 0.
 
 ```
 INVESTIGATIVE
@@ -110,7 +130,7 @@ Allies fill the gaps in her sheet (see §A8). They advise and assist; they never
 
 ## A8. Known gaps (for the GM and player)
 
-Eleanor has no Cop Talk, Streetwise, Law, Science, Photography, Occult Studies, Investigative Procedure, Mechanics beyond 2, or combat skills. The adventure routes every Core Clue through at least one ability she has, a Simple Search, or an ally, so none of these gaps can stall the story. They do shape how expensive, slow and risky each route is.
+Eleanor has no Cop Talk, Streetwise, Law, Science, Photography, Occult Studies, Investigative Procedure, Mechanics beyond 2, or combat skills. The adventure routes every essential clue through at least one ability she has, a Simple Search, or an ally, so none of these gaps can stall the story. They do shape how expensive, slow and risky each route is.
 
 ---
 
@@ -132,13 +152,13 @@ The original sheet was written for a different rules set (Trail of Cthulhu style
 | Credit Rating 6 | Narrative "Means" (§A7) | Fear Itself has no equivalent ability |
 | Drive: Duty | Risk Factor: Duty | Hard/Soft rules in §A1 |
 
-**Budget note (house rule):** the published Fear Itself budget for Investigative abilities assumes a group (for example 16 points each for two players). A solo investigator has no one to cover her gaps, so she keeps the original sheet's total of **26** Investigative points. General abilities use the standard 60. Health and Stability are bought from that 60.
+**Budget note (house rule):** the published Fear Itself budget for Investigative abilities assumes a group (for example 16 points each for two players). A solo character has no one to cover her gaps, so she keeps the original sheet's total of **26** Investigative points. General abilities use the standard 60. Health and Stability are bought from that 60.
 
 ---
 
-## A10. Party play: scaling Eleanor and additional investigators
+## A10. Party play: scaling Eleanor and additional characters
 
-Eleanor is built on the solo budget (26 Investigative points). In a party she is rescaled (file 02 §2.2) to the budget for the party size at the start. This trim table wins over the general trimming rule. Her General abilities (60 points) do not change.
+Eleanor is built on the solo budget (26 Investigative points). In a party she is rescaled (the ruleset §2.2) to the budget for the party size at the start. This trim table wins over the general trimming rule. Her General abilities (60 points) do not change.
 
 | Party size | Budget | Research | Bullshit Detector | Reassurance | Medicine | Negotiation | Flattery | Interrogation | Notice | Bureaucracy |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -148,63 +168,63 @@ Eleanor is built on the solo budget (26 Investigative points). In a party she is
 | 4 | 16 | 5 | 3 | 2 | 2 | 1 | 0 | 1 | 1 | 1 |
 | 5 | 14 | 4 | 3 | 2 | 1 | 1 | 0 | 1 | 1 | 1 |
 
-**Other investigators.** This file has no other pregenerated investigators. Players may create their own with quick creation (file 02 §2), bring a sheet to be checked (file 02 §2.1), or ask the AI Master to generate pregenerated investigators on demand (file 02 §2.2). Useful gaps to cover, because Eleanor has none of them: Law or Cop Talk, Science or Photography, Streetwise, and a steadier body.
+**Other characters.** This file has no other pregenerated characters. Players may create their own with quick creation (the ruleset §2), bring a sheet to be checked (the ruleset §2.1), or ask the AI Master to generate pregenerated characters on demand (the ruleset §2.2). Useful gaps to cover, because Eleanor has none of them: Law or Cop Talk, Science or Photography, Streetwise, and a steadier body.
 
-**Hook variants for additional investigators.** Each investigator needs a reason to be in Danvers and a copy of Larry's letter (Handout 1) or the hospital's letter (Handout 2) with their own name in the salutation. Choose one per investigator, or invent a similar one:
+**Hook variants for additional characters.** Each character needs a reason to be in Danvers and a copy of Larry's letter (Handout 1) or the hospital's letter (Handout 2) with their own name in the salutation. Choose one per character, or invent a similar one:
 
 - A friend of Larry's from the folklore societies, who received a second pencil letter in the same batch.
 - A colleague of Peg Doyle's, a junior reporter or a photographer, assigned to go with Eleanor.
 - A younger physician or assistant of Dr. Whitcombe's, asked as a favour to look in on Larry.
 - A relative of a patient at the hospital, who has received the same kind of typed letter asking them not to visit.
 
-Each additional investigator is also a possible Source of Stability for the others (file 02 §2).
+Each additional character is also a possible Source of Stability for the others (the ruleset §2).
 
 ---
 
 # PART B: THE ADVENTURE (GM ONLY)
 
-> **GM ONLY.** Never show, quote or summarize Part B to the player. Behavior is governed by file 01, rule numbers by file 02, random tables by file 03, and the database and message shapes by file 05.
+> **GM ONLY.** Never show, quote or summarize Part B to the player. Behavior is governed by the protocol, rule numbers by the ruleset, random tables by the oracles, and the database and message shapes by the state contract.
 
 ## 0. Using this file
 
 **Setup parameters (module contract, protocol §16.1).**
-- **Format:** solo (Eleanor Vance, pregenerated in Part A) or a party of up to five (Eleanor scaled by the table in A10, plus other investigators created or generated by the rules in file 02 §2). Peg and Whitcombe are GM allies in both.
+- **Format:** solo (Eleanor Vance, pregenerated in Part A) or a party of up to five (Eleanor scaled by the table in A10, plus other characters created or generated by the rules in the ruleset §2). Peg and Whitcombe are GM allies in both.
 - **Pace:** *slow* starts on Day 1 Morning (Handout 1 arrives at her lodgings); *fast* starts on Day 2 Afternoon, stepping off the train at Danvers with both letters already in her bag.
 - **Era and place:** Massachusetts, November 1925 (era notes in §14).
-- **Tone preset:** Sordid and Gritty (rules §1).
-- **Modules on:** hazard stages (rules §4.6), Perception Drift (rules §5.1), Belief states (rules §5.4), Heat ladder replaced by §7 below, Blocks and clocks (rules §5.3).
+- **Tone preset:** Sordid and Gritty (ruleset §1).
+- **Modules on:** hazard stages (ruleset §4.6), Perception Drift (ruleset §5.1), Belief states (ruleset §5.4), Heat ladder replaced by §7 below, Blocks and clocks (ruleset §5.3).
 - **Default Source of Stability:** Peg Doyle.
 
 **Principles.**
-- **The schedule is a ceiling, not a track.** If the investigator acts sooner, move the beats. The clock runs regardless.
-- **Fair play.** Every Core Clue has at least three routes, a Simple Search, or an ally. Hallucinations never carry Core Clues. Warnings precede lethal danger.
+- **The schedule is a ceiling, not a track.** If the character acts sooner, move the beats. The clock runs regardless.
+- **Fair play.** Every essential clue has at least three routes, a Simple Search, or an ally. Hallucinations never carry essential clues. Warnings precede lethal danger.
 - **Spine:** Letters, then the hospital, then the pattern in the air, then the history, then the date, then the finale at midnight on Day 5.
 - **Three ways to win, any combination:** get Larry out; document the truth so the State acts; stop or blunt the rite. She must also keep her own mind.
 - **Tone:** sordid and gritty. Authorities do not help without documents. Time is short.
 
-### 0.1 Asynchronous play (module contract item 16)
+### 0.1 Asynchronous play (adventure contract item 17)
 
-**Recommended settings.** `tick_span: day` (four Blocks per tick) and `tick_interval_hours: 24`, with `early_close: true` in solo play and `false` in a party. Tick 1 is Day 1, and so on, so the adventure runs five ticks at the slow pace and four at the fast pace (Day 2 Afternoon is a short first tick of three Blocks). A table that wants finer play may use `tick_span: block`.
+**Recommended settings.** Lethality `moderate` (default). `tick_span: day` (four Blocks per tick) and `tick_interval_hours: 24`, with `early_close: true` in solo play and `false` in a party. Tick 1 is Day 1, and so on, so the adventure runs five ticks at the slow pace and four at the fast pace (Day 2 Afternoon is a short first tick of three Blocks). A table that wants finer play may use `tick_span: block`.
 
-**State to seed at the start of `active`** (file 01 §16.2). Create NPC run-state records from §3 (belief state, location, attitudes, inventory, schedule), scheduled events from §5, the starting `gm_state` (Tension 2, Heat 0, intensity mild, the clock), and each investigator's starting location (Boston lodgings, or Danvers Square at the fast pace). Do not copy this file into state.
+**State to seed at the start of `active`** (protocol §16.2). Create `npc_state` records for the NPCs of Part C that matter at the start (belief state, location, attitudes, inventory, schedule), and `location_state` records for the starting places, scheduled events from §5, the starting `gm_state` (Tension 2, Heat 0, intensity mild, the clock), and each character's starting location (Boston lodgings, or Danvers Square at the fast pace). Do not copy this file into state.
 
-**Scheduled events.** Make one for each row of §5: Letter 1, Letter 2, the interview with Berger when an investigator asks for it, MacBride's call, staff in street clothes, the Hour-of-Telling invitation, MacBride's visit, the Herald notice, the inspector window, the rite. The schedule is a ceiling: if investigators act sooner, move the beat. An event fires at its Block whether or not an investigator is there.
+**Scheduled events.** Make one for each row of §5: Letter 1, Letter 2, the interview with Berger when a character asks for it, MacBride's call, staff in street clothes, the Hour-of-Telling invitation, MacBride's visit, the Herald notice, the inspector window, the rite. The schedule is a ceiling: if characters act sooner, move the beat. An event fires at its Block whether or not a character is there.
 
-**Events aimed at "Eleanor".** In a party, aim each event at the investigator who fits its condition:
-- Letters reach every investigator who has a hook (A10).
+**Events aimed at "Eleanor".** In a party, aim each event at the character who fits its condition:
+- Letters reach every character who has a hook (A10).
 - A call to the lodging reaches whoever is at the hall telephone. If nobody is, Mrs. Tolland takes a message and passes it on in the morning.
-- MacBride's night visit goes to the room of the investigator who has been most visible. The others hear a disturbance.
-- Shadowing and sabotage target the investigator who made the most noise (§7).
+- MacBride's night visit goes to the room of the character who has been most visible. The others hear a disturbance.
+- Shadowing and sabotage target the character who made the most noise (§7).
 
-**Exposure.** At the end of each Block, add Exposure Points for each investigator's zone and the day's intensity (§2.2) and subtract recovery. Heat is shared by the party (§7).
+**Exposure.** At the end of each Block, add Exposure Points for each character's zone and the day's intensity (§2.2) and subtract recovery. Heat is shared by the party (§7).
 
 **Spend offers.** Investigative extras (for example a second page of Shine's journal, or a clerk's remark about the 1922 minutes) are offered as spend offers for the next tick rather than lost.
 
-**Clues in a party.** Each essential conclusion in §6 must be reachable by more than one investigator and by more than one tick. A clue belongs to the investigator who found it until they share it in the fiction (file 01 §9).
+**Clues in a party.** Each essential conclusion in §6 must be reachable by more than one character and by more than one tick. A clue belongs to the character who found it until they share it in the fiction (protocol §5.4).
 
-**The finale in crisis ticks.** From about 10:30 pm on Night 5, switch to `beat` ticks. By default one tick covers two Beats (Beats 1 and 2, 3 and 4, 5 and 6, then 7). Each investigator's plan lists what they do Beat by Beat, with contingencies. Decision gates stop the plan before Beat 5 (the Offering, the point of no return for Larry), before Beat 6 (a Drift 5 investigator's Surface test and the Hard Risk Factor), and before any step that could kill an investigator (file 01 §6). A table may instead agree a compressed finale: one crisis tick with gates at the same points. The crisis tick interval is set by the table. In solo play with early close, the finale resolves as fast as the player submits.
+**The finale in crisis ticks.** From about 10:30 pm on Night 5, switch to `beat` ticks. By default one tick covers two Beats (Beats 1 and 2, 3 and 4, 5 and 6, then 7). Each character's action lists what they do Beat by Beat, with contingencies. Decision gates stop the plan before Beat 5 (the Offering, the point of no return for Larry), before Beat 6 (a Drift 5 character's Surface test and the Hard Risk Factor), and before any step that could kill a character (protocol §6.5). A table may instead agree a compressed finale: one crisis tick with gates at the same points. The crisis tick interval is set by the table. In solo play with early close, the finale resolves as fast as the player submits.
 
-**Absent investigators at the finale.** They are not exposed to lethal risk (file 02 §6.4). Place them somewhere safe: Mrs. Tolland's house, the old farm cottage, Whitcombe's house. If Larry is out of reach, the rite's offering falls on someone else (§9) only through an investigator whose player walked past a decision gate.
+**Absent characters at the finale.** They are not exposed to lethal risk (the ruleset §6.4). Place them somewhere safe: Mrs. Tolland's house, the old farm cottage, Whitcombe's house. If Larry is out of reach, the rite's offering falls on someone else (§9) only through a character whose player walked past a decision gate.
 
 ---
 
@@ -228,9 +248,9 @@ Each additional investigator is also a possible Source of Stability for the othe
 
 ## 2. The spore system (this adventure's parameters)
 
-This section gives the adventure's settings for the hazard stages (file 2 §4.6) and the Perception Drift module (file 2 §5.1). The generic rules (Drift levels, Slips, Check Reality, lost time, notebook rule, anchors, Immersion and Surface test, fairness limits) are in file 2 §5.1 and apply unchanged.
+This section gives the adventure's settings for the hazard stages (the ruleset §4.6) and the Perception Drift module (the ruleset §5.1). The generic rules (Drift levels, Slips, Check Reality, lost time, notebook rule, anchors, Immersion and Surface test, fairness limits) are in the ruleset §5.1 and apply unchanged.
 
-### 2.1 Intensity clock (file 2 §4.6)
+### 2.1 Intensity clock (the ruleset §4.6)
 
 | Day | Intensity | Why |
 |---|---|---|
@@ -238,7 +258,7 @@ This section gives the adventure's settings for the hazard stages (file 2 §4.6)
 | 4 | Moderate | Rain, cold, windows shut, steam higher |
 | 5 | Severe | Cold snap and fog, steam at full, fruiting at its autumn peak |
 
-Stage times in file 02 §4.6 apply to time inside Active and Hot zones. In Fringe zones the stage clock runs at half speed.
+Stage times in the ruleset §4.6 apply to time inside Active and Hot zones. In Fringe zones the stage clock runs at half speed.
 
 ### 2.2 Zones and Exposure Points (EP)
 
@@ -255,19 +275,19 @@ Track Exposure Points privately. Each Block mostly spent inside a zone adds EP. 
 
 ### 2.3 Bodily effects and cues
 
-Use file 2 §4.6 for the body (Cues, then stages). Cues available in this adventure, at least two before any Health test: stale warm air that smells of cellars and wet leaves; a dull headache; drowsy patients; staff rubbing their temples; a caged canary drooping in the superintendent's anteroom; a grey dust like ash on ledges and windowsills; condensation on grilles; blue-grey bruising on damp stone and bark; a metallic sheen on the reservoir; dew rings in the garden lawn. A Sense Trouble spend (blind) can identify "the air" as the problem.
+Use the ruleset §4.6 for the body (Cues, then stages). Cues available in this adventure, at least two before any Health test: stale warm air that smells of cellars and wet leaves; a dull headache; drowsy patients; staff rubbing their temples; a caged canary drooping in the superintendent's anteroom; a grey dust like ash on ledges and windowsills; condensation on grilles; blue-grey bruising on damp stone and bark; a metallic sheen on the reservoir; dew rings in the garden lawn. A Sense Trouble spend (blind) can identify "the air" as the problem.
 
 ### 2.4 Drift settings
 
-- Uses the default EP thresholds of file 2 §5.1 (Drift 0 at EP 0 to 1, 1 at 2 to 3, 2 at 4 to 6, 3 at 7 to 9, 4 at 10 to 12, 5 at 13 to 15).
-- Slips occur in Active or Hot zones. Use the Slip tables in file 3 §12.2 with **{Anchor}** = Peg (or Larry) and **{Belief}** = the Guest.
+- Uses the default EP thresholds of the ruleset §5.1 (Drift 0 at EP 0 to 1, 1 at 2 to 3, 2 at 4 to 6, 3 at 7 to 9, 4 at 10 to 12, 5 at 13 to 15).
+- Slips occur in Active or Hot zones. Use the Slip tables in Appendix A of the ruleset with **{Anchor}** = Peg (or Larry) and **{Belief}** = the Guest.
 - A Stage 2 bodily effect counts as +1 Drift while it lasts.
-- At the finale, Drift 5 without a successful Surface test means she joins the rite, as in file 2 §5.1.
-- Slips are delivered as ordinary perceived facts with a tell. Check Reality and the Surface test are automatic, using the anchor named in the player's standing orders (file 2 §5.1, asynchronous handling).
+- At the finale, Drift 5 without a successful Surface test means she joins the rite, as in the ruleset §5.1.
+- Slips are delivered as ordinary perceived facts with a tell. Check Reality and the Surface test are automatic, using the anchor named in the player's standing orders (the ruleset §5.1, asynchronous handling).
 
 ### 2.5 Anchors and Sources of Stability
 
-Anchors that help her: a call to Peg (refreshes 2 Stability once per day, file 2 §4.8), typing up her notes in a Haven (second Source), documented facts (her trait Source), Larry's letter and her press card (touch, narrative), fresh air, a grounding word from Whitcombe. Each lets her Check Reality at Difficulty 1 lower **once per scene** when she names the anchor she uses.
+Anchors that help her: a call to Peg (refreshes 2 Stability once per day, the ruleset §4.8), typing up her notes in a Haven (second Source), documented facts (her trait Source), Larry's letter and her press card (touch, narrative), fresh air, a grounding word from Whitcombe. Each lets her Check Reality at Difficulty 1 lower **once per scene** when she names the anchor she uses.
 
 ### 2.6 Narration palette
 
@@ -292,7 +312,7 @@ Examples to adapt:
 
 1. Never name the cause in narration (no "spores", no "fungus") until she has the clue. She may suspect "the air".
 2. Draw hallucinations from the fears the player named and from Larry, Peg, the unreachable exit, being disbelieved and the hospital's own imagery.
-3. All other fairness limits are in file 2 §5.1.
+3. All other fairness limits are in the ruleset §5.1.
 
 ---
 
@@ -380,13 +400,13 @@ Each conclusion has at least three routes. Any route suffices.
 | C9 | What the authorities need to act | Peg; Bureaucracy; Whitcombe |
 | C10 | Ways in and out of the hospital | Greer; the tunnel hatch (Notice or Infiltration); Mull; laundry cart; Larry |
 
-**Floating Core Clues** (release to unstick play): Peg telegrams a quote from the annual report; Whitcombe telephones with a lead on Shine's papers; MacBride's call; Greer approaches her at the library.
+**Floating clues** (release to unstick play): Peg telegrams a quote from the annual report; Whitcombe telephones with a lead on Shine's papers; MacBride's call; Greer approaches her at the library.
 
 ---
 
 ## 7. The antagonist's reactions (escalation)
 
-Berger and his followers respond in proportion, by human means. Raise the rung each time an investigator makes noise (visiting, questioning staff, contacting the State). In party play the rung is shared by the group, and the reaction targets the investigator who made the noise.
+Berger and his followers respond in proportion, by human means. Raise the rung each time a character makes noise (visiting, questioning staff, contacting the State). In party play the rung is shared by the group, and the reaction targets the character who made the noise.
 
 1. **Courtesy:** Berger receives her politely, offers tea, delays.
 2. **Watching:** staff in street clothes appear at libraries and the station.
@@ -423,7 +443,7 @@ Berger and his followers respond in proportion, by human means. Raise the rung e
 
 If Larry is out, Berger improvises. Staff hunt in the town on Night 5. The rite picks another offering: Eleanor herself (if reachable), Greer, or a patient. Her Duty (Hard Risk Factor) then pulls her back toward the hill.
 
-**Escape Pool** (file 2 §4.3, if she is trapped inside): start at 0; +1 to 3 per way-out clue (the tunnel hatch, the laundry cart, Greer's key, the shift change, the service road); +1 per relevant Investigative spend; +1 per relevant successful General test. Difficulty 8. Failure empties the pool and triggers a hazard (a locked door, a patrol, a Slip).
+**Escape Pool** (the ruleset §4.3, if she is trapped inside): start at 0; +1 to 3 per way-out clue (the tunnel hatch, the laundry cart, Greer's key, the shift change, the service road); +1 per relevant Investigative spend; +1 per relevant successful General test. Difficulty 8. Failure empties the pool and triggers a hazard (a locked door, a patrol, a Slip).
 
 ---
 
@@ -459,7 +479,7 @@ If Larry is out, Berger improvises. Staff hunt in the town on Night 5. The rite 
 | Eleanor committed or Lost | She is among the patients. Peg and Whitcombe fight to find her. |
 | Eleanor dies | Narrate with weight. Resolve Larry's fate and the evidence. |
 
-In party play, judge each investigator's outcome separately and give each player an epilogue for their own investigator.
+In party play, judge each character's outcome separately and give each player an epilogue for their own character.
 
 After the finale, offer a debrief.
 
@@ -487,7 +507,7 @@ After the finale, offer a debrief.
 
 ## 13. Handouts (show when found)
 
-In party play, additional investigators receive Handouts 1 and 2 with their own name in the salutation (A10). Record each handout a player holds in that player's knowledge (file 05 §2.7).
+In party play, additional characters receive Handouts 1 and 2 with their own name in the salutation (A10). Record each handout a player holds in that character's knowledge (state contract §3.5).
 
 ### Handout 1: Larry's pencil letter (given Day 1 Morning)
 
@@ -563,3 +583,58 @@ Pages of pencil on laundry paper sewn into his mattress: a rough plan of the war
 - **Law and bureaucracy:** visits to patients need written permission from the superintendent's office. Commitment papers can be long-lasting and hard to challenge. The state has a department that oversees public mental hospitals; a hospital's board of trustees exists; both respond to documents and credible witnesses, not to rumor.
 - **Journalism:** a freelance woman reporter in 1925 meets skepticism and condescension; Peg Doyle is a rare ally. Libel is a real fear for editors.
 - **Language:** the narrator uses plain, respectful terms ("patients"). Period official language ("insane", "nervous agitation") appears only in documents and institutional voices, never as the narrator's own. Avoid slurs and anachronism.
+
+---
+
+# PART C: IDS FOR FIXED RECORDS (GM only)
+
+This adventure defines its NPCs and locations itself, in §3 and §4. A game refers to them by the stable ids below. Run changes go in `npc_state` and `location_state` records with these ids. Create a database `npc` or `location` record only for something not listed here. Part A's sheet is the pregenerated character `pregen_eleanor_vance`.
+
+## C1. NPC ids
+
+| id | Name | Role | Replacement candidate |
+|---|---|---|---|
+| `npc_larry_croswell` | Lawrence "Larry" Croswell | The captive friend | No (essential) |
+| `npc_berger` | Dr. James Berger | Superintendent, antagonist | No |
+| `npc_hallett` | Nurse Hallett | Desk nurse | No |
+| `npc_kessler` | Orderly Kessler | Orderly | No |
+| `npc_mull` | Gus Mull | Orderly | No |
+| `npc_greer` | Thomas Greer | Night attendant | Yes, after Day 2 if he is Clear and free |
+| `npc_macbride` | Andrew MacBride | Patient, foreman | No (dies Day 5) |
+| `npc_peg_doyle` | Peg Doyle | Editor, ally | Yes |
+| `npc_whitcombe` | Dr. Samuel Whitcombe | Physician, antiquarian, ally | Yes |
+| `npc_tolland` | Mrs. Abigail Tolland | Landlady | No |
+| `npc_walter_tolland` | Walter Tolland | Hospital cook, her nephew | No |
+| `npc_pratt` | Inspector Edwin Pratt | State Department of Mental Diseases | No |
+| `npc_ormsby` | Chief Ormsby | Danvers police | No |
+| `npc_wentworth` | Miss Cora Wentworth | Librarian | Yes |
+| `npc_staff_shadow` | Staff in street clothes | Berger's watchers | No |
+
+A replacement candidate is marked `available_as_replacement: true` in its `npc_state` when it becomes plausible in the fiction.
+
+## C2. Location ids
+
+| id | Place | Zone |
+|---|---|---|
+| `loc_tolland_house` | Danvers Square, Mrs. Tolland's house | Clear |
+| `loc_boston_lodgings` | Eleanor's lodgings, Boston (slow-pace start) | Clear |
+| `loc_danvers_square` | Danvers Square, station and shops (fast-pace start) | Clear |
+| `loc_peabody_library` | Peabody Institute Library | Clear |
+| `loc_town_hall` | Town Hall, Danvers | Clear |
+| `loc_herald` | Danvers Herald | Clear |
+| `loc_historical_society` | Danvers Historical Society | Clear |
+| `loc_whitcombe_house` | Dr. Whitcombe's house, Salem | Clear |
+| `loc_salem_archive` | Salem Hospital archive | Clear |
+| `loc_gate_lodge` | Gate lodge and drive | Fringe |
+| `loc_front_office` | Front office and visitors' parlor | Fringe |
+| `loc_main_wards` | Main building, wards and Dining Hall | Active |
+| `loc_h_ward` | H Ward, west wing | Active |
+| `loc_j_ward` | J Ward, cell J-12 | Hot |
+| `loc_laundry_kitchens` | Laundry and kitchens | Active |
+| `loc_greenhouse` | Greenhouse and kitchen garden | Hot |
+| `loc_steam_tunnels` | Steam plant and tunnels | Hot |
+| `loc_amphitheater` | Amphitheater and reservoir shore | Hot |
+| `loc_potters_field` | Potter's field | Fringe |
+| `loc_farm_cottage` | Old farm cottage | Fringe |
+
+Zones follow §4 and §2.2. If the adventure text above disagrees with a zone here, §4 wins.

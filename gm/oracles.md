@@ -1,11 +1,13 @@
 # Oracles and Generators
-## Realistic psychological horror · Fear Itself · Solo or party
+## Random tables and generators for any ruleset and any adventure
 
-> **GM-FACING FILE.** These tables answer unknowns, generate material and seed adventures. Behavior is governed by file 01 (`AI_GM_01_Agent_Protocol.md`); rules by file 02 (`AI_GM_02_Fear_Itself_Rules.md`); data shapes by file 05 (`AI_GM_05_State_and_Messages.md`). Facts in the adventure (file 04 or the stored generated adventure) always win over a table result.
+> **GM-FACING FILE.** These tables answer unknowns, generate material and seed adventures. Behavior is governed by the protocol, data shapes by the state contract, and mechanics by the ruleset in use. Facts in the adventure always win over a table result.
 >
 > **Spoiler warning for players:** §8 lists possible rational causes of strange events. Do not read it if you want to be surprised.
 >
-> **Dice:** in this game every roll comes from the server's dice stream (file 05 §3.2), used in order and logged. Never invent a number. d20 tables have 20 rows. d10 tables: treat 0 as 10. d6 tables have 6 rows. Everything here is mundane and era-neutral. Adapt names, objects and technology to the declared era (rules §7). There are no monsters, ghosts or curses, only beliefs, suggestions, hazards, illnesses, lies and people.
+> **Dice:** every roll comes from the server's dice stream (state contract §5.1), used in order and logged. Never invent a number. d20 tables have 20 rows. d10 tables: treat 0 as 10. d6 tables have 6 rows.
+>
+> **Vocabulary note:** the tables use generic words. Read "character" for the player's character, "essential clue" for a clue the story cannot proceed without, "pressure" for the antagonist's reaction level, "safe place" for wherever the ruleset allows recovery, and "distortion" for a mistaken perception when the ruleset has a perception module. Everything here is mundane and era-neutral: adapt names, objects and technology to the declared era. Unless the adventure or the ruleset says otherwise, nothing is supernatural: only beliefs, suggestions, hazards, illnesses, lies and people.
 
 ---
 
@@ -14,13 +16,13 @@
 **Use it for:** a yes or no about the world that nothing defines; a new NPC; a random event when play stalls; an item or document; an atmosphere; a scene complication; a hazard; a hook for a new adventure.
 
 **Do not use it for:**
-- Core Clues (they are never random).
+- essential clues (they are never random).
 - A player character's own actions or feelings.
-- Anything a General test already covers: use the d6 test (rules §4.2).
+- Anything a General test already covers: use the ruleset's test.
 - Anything the adventure file or the players have already defined.
-- A way to contradict the rational truth.
+- A way to contradict the truth.
 
-Oracle results inspire, they do not restrict. Fail forward: even a "No" brings a cost or a way around. The AI Master rolls and interprets, using the dice stream, and logs every roll. Record what an oracle establishes as a world fact (file 05 §2.8) so later ticks stay consistent.
+Oracle results inspire, they do not restrict. Fail forward: even a "No" brings a cost or a way around. The AI Master rolls and interprets, using the dice stream, and logs every roll. Record what an oracle establishes as a world fact (state contract §3.4) so later ticks stay consistent.
 
 ---
 
@@ -28,7 +30,7 @@ Oracle results inspire, they do not restrict. Fail forward: even a "No" brings a
 
 Ask a yes or no question. Choose likelihood. Two d20 means two consecutive values from the d20 stream:
 - **Neutral:** roll 1d20.
-- **Likely** (advantage, the right tool, the situation favors the investigators): roll 2d20 and keep the **higher**.
+- **Likely** (advantage, the right tool, the situation favors the characters): roll 2d20 and keep the **higher**.
 - **Unlikely** (pressed for time, outnumbered, unprepared, in danger): roll 2d20 and keep the **lower**.
 
 | d20 | Result | Meaning |
@@ -40,7 +42,7 @@ Ask a yes or no question. Choose likelihood. Two d20 means two consecutive value
 | 15 to 19 | Yes | Clean success |
 | 20 | Yes, and | An exceptional success with a bonus |
 
-**Drift skew (optional).** If an investigator is at Drift 3 or higher and asks about something they *perceive* (not a physical fact), a natural 1 or 20 means the perception is a Slip: the answer is what they see, but it is not so.
+**Perception skew (optional).** If the ruleset has a perception module and a character is at a high level of it and asks about something they *perceive* (not a physical fact), a natural 1 or 20 means the perception is a distortion: the answer is what they see, but it is not so.
 
 ---
 
@@ -54,7 +56,7 @@ Roll or choose. Combine with the Mundane Cause generator (§8) and the antagonis
 |---|---|
 | 1 | A friend writes asking for help, then a second letter contradicts the first |
 | 2 | A relative stops answering calls and the institution says they are fine |
-| 3 | A publisher, newspaper or authority assigns the investigators to check a complaint |
+| 3 | A publisher, newspaper or authority assigns the characters to check a complaint |
 | 4 | An inheritance or a legal duty requires them to visit a place |
 | 5 | A new job or posting puts them inside the situation |
 | 6 | A witness arrives with a story nobody believes |
@@ -74,7 +76,7 @@ Roll or choose. Combine with the Mundane Cause generator (§8) and the antagonis
 | 5 | A hidden crime |
 | 6 | A mistake that killed someone |
 | 7 | A source of income or funding |
-| 8 | The investigators' own sanity or safety |
+| 8 | The characters' own sanity or safety |
 | 9 | A vulnerable group (patients, children, elders) |
 | 10 | A coming date: a transfer, a ceremony, a closing |
 
@@ -106,19 +108,19 @@ Roll or choose. Combine with the Mundane Cause generator (§8) and the antagonis
 | 7 | The most reliable witness is the most affected |
 | 8 | An ally has been quietly gathering evidence the whole time |
 | 9 | The cause is well meaning and still lethal |
-| 10 | The investigators have already been exposed for longer than they thought |
+| 10 | The characters have already been exposed for longer than they thought |
 
 ---
 
 ## 4. Scene Test and Events
 
 ### 4.1 Tension and the Scene Test
-Keep a **Tension** score from 1 to 6, starting at 2, in the game's GM-only state. Once per tick for each thread (a group of investigators in one place), at the start of the thread's first Block, roll a d6. If the result is equal to or lower than Tension, the scene is **altered**. Roll a d6:
+Keep a **Tension** score from 1 to 6, starting at 2, in the game's GM-only state. Once per tick for each thread (a group of characters in one place), at the start of the thread's first Block, roll a d6. If the result is equal to or lower than Tension, the scene is **altered**. Roll a d6:
 - **1 to 2, Complication:** roll on the Complication table (§10).
 - **3 to 4, Interruption:** roll an Event Meaning (§4.2) and add it to the scene.
-- **5 to 6, Escalation:** tick the clock, raise Heat or an NPC's belief state by one.
+- **5 to 6, Escalation:** tick the clock, raise the antagonist's pressure or an NPC's belief state by one.
 
-Raise Tension by 1 when the investigators make noise, fail forward or waste a Block. Lower it by 1 after a quiet scene or a successful Haven. Tension never goes below 1 or above 6.
+Raise Tension by 1 when the characters make noise, fail forward or waste a Block. Lower it by 1 after a quiet scene or a safe recovery. Tension never goes below 1 or above 6.
 
 ### 4.2 Event Meaning (d20 + d20)
 Roll one from each column and interpret in context.
@@ -247,7 +249,7 @@ Roll one from each column and interpret in context.
 | 9 | A clock that is too slow | Sweet rot | A red exit sign | Damp sheets | A string of beads |
 | 10 | Complete silence | Metallic tang | Long slanting shadows | Stiff cold fingers | A pocketknife |
 
-**Mood and ambience (d10 plus the highest Drift in the scene, cap 10)**
+**Mood and ambience (d10 plus the highest distortion level in the scene, cap 10)**
 
 | Result | Mood |
 |---|---|
@@ -270,7 +272,7 @@ Roll one from each column and interpret in context.
 | 3 to 4 | Overcast | Normal |
 | 5 | Fog | Fumes and smoke linger; sight tests +1 Difficulty |
 | 6 to 7 | Rain | Windows shut; hazards stay indoors |
-| 8 | Frost | Heating at full; outdoor Athletics +1 Difficulty |
+| 8 | Frost | Heating at full; outdoor physical tests are one step harder |
 | 9 | Wind | Hazards scatter; a Block of exposure may be halved |
 | 10 | Warm spell | Windows open; hazards diluted |
 
@@ -319,7 +321,7 @@ Roll one from each column and interpret in context.
 | 10 | Be left alone |
 | 11 | Hide a mistake |
 | 12 | Pay a debt |
-| 13 | Help the investigators in secret |
+| 13 | Help the characters in secret |
 | 14 | Recruit someone to a belief |
 | 15 | Destroy evidence |
 | 16 | Care for a sick relative |
@@ -408,7 +410,7 @@ Roll one from each column and interpret in context.
 | 9 | Wary ally |
 | 10 | Overconfident |
 
-**Belief state (d6)** (rules §5.4)
+**Belief state (d6)** (the ruleset's belief states, if any)
 
 | d6 | State |
 |---|---|
@@ -492,9 +494,9 @@ Roll one from each column and interpret in context.
 
 ---
 
-## 8. The Mundane Cause generator (the rational truth)
+## 8. The Mundane Cause generator (the truth)
 
-Use this to build the rational truth for a new adventure, or to answer a question about why something is happening. Roll or choose one entry in each of the four tables, then make them coherent. Never use real-world procedures or instructions; stay at the level of story.
+Use this to build the truth for a new adventure, or to answer a question about why something is happening. Roll or choose one entry in each of the four tables, then make them coherent. Never use real-world procedures or instructions; stay at the level of story.
 
 **Source (d20)**
 
@@ -660,7 +662,7 @@ Use this to build the rational truth for a new adventure, or to answer a questio
 | 9 | Follows a routine that can be predicted |
 | 10 | Has a rival who wants their place |
 
-For the Heat ladder of responses see rules §5.2.
+For the ladder of antagonist responses see the ruleset, if it has one.
 
 ---
 
@@ -677,7 +679,7 @@ For the Heat ladder of responses see rules §5.2.
 | 7 | Tracking a faint trail or a person before a deadline |
 | 8 | A patrol or a shift change |
 | 9 | A choice that costs time, trust or safety |
-| 10 | A Slip that must be questioned |
+| 10 | A distortion that must be questioned |
 | 11 | A witness who will not talk until fed or warmed |
 | 12 | A suspicious ally who demands proof |
 | 13 | A crowd that blocks the way |
@@ -702,11 +704,11 @@ For the Heat ladder of responses see rules §5.2.
 | 7 | A Block is lost |
 | 8 | A bruise or a pool point is lost |
 | 9 | Someone trusted hesitates |
-| 10 | A Slip, if the character is exposed |
+| 10 | A distortion, if the character is exposed |
 | 11 | A document is damaged or goes missing |
 | 12 | An ally is pressured or moved |
 | 13 | The weather worsens |
-| 14 | A rumor spreads about the investigators |
+| 14 | A rumor spreads about the characters |
 | 15 | A door that was open is locked |
 | 16 | A witness changes their story |
 | 17 | A relative or friend is touched by the problem |
@@ -721,7 +723,7 @@ For the Heat ladder of responses see rules §5.2.
 | 1 | A message from an ally, brisk and useful |
 | 2 | A telephone rings once and stops |
 | 3 | A clerk misplaces a file, then finds it |
-| 4 | A stranger takes the seat across from the investigators |
+| 4 | A stranger takes the seat across from the characters |
 | 5 | A resident presses a note into a hand |
 | 6 | Rain begins and windows are shut |
 | 7 | A delivery cart blocks the lane |
@@ -808,14 +810,14 @@ Use for cults, panics, shared delusions and communities that harden around a bel
 | 7 | A hush when outsiders enter |
 | 8 | A calm that is too complete |
 | 9 | A song or rhyme children and adults both know |
-| 10 | A particular kind of kindness toward the investigators |
+| 10 | A particular kind of kindness toward the characters |
 
 ---
 
-## 12. Slips and fear seeds
+## 12. Fear seeds and distortions
 
 ### 12.1 Fear seeds (d20)
-Use with the fears the players named. When a Slip needs content, choose a seed and give it a concrete detail from the scene.
+Use with the fears the players named. When a distortion needs content, choose a seed and give it a concrete detail from the scene.
 
 | d20 | Fear seed |
 |---|---|
@@ -840,53 +842,8 @@ Use with the fears the players named. When a Slip needs content, choose a seed a
 | 19 | A number or phrase that keeps returning |
 | 20 | Comfort offered by the wrong person |
 
-### 12.2 Slip tables (d10)
-Use these when the module calls for a Slip (rules §5.1). Choose the table by Drift level. Replace {Anchor} with a person or place the investigator relies on, and {Belief} with the shared belief or figure of the adventure. Every Slip needs a **tell**. Never label it a hallucination in narration.
-
-**Slip I (Drift 1 to 2)**
-
-| d10 | Slip |
-|---|---|
-| 1 | The floor looks wet though it is dry |
-| 2 | Movement at the edge of vision, gone when looked at |
-| 3 | The investigator's name said politely behind them |
-| 4 | A stain on the plaster with too many eyes |
-| 5 | The tick of a clock that is not there |
-| 6 | A taste, sudden and strong |
-| 7 | A smell in a room where it should not be |
-| 8 | A door they are sure they closed is ajar |
-| 9 | A resident's face looks familiar and wrong |
-| 10 | The lamp hums on a note they know |
-
-**Slip II (Drift 3 to 4)**
-
-| d10 | Slip |
-|---|---|
-| 1 | {Anchor}'s voice calling from the next room |
-| 2 | {Anchor} on the telephone, saying something they would not say |
-| 3 | Faces slow, smiles too long |
-| 4 | A repeating pattern in the wall forming a figure |
-| 5 | A hymn too low to place |
-| 6 | The floor warm underfoot |
-| 7 | A scene already lived, but wrong |
-| 8 | A clock that jumps a quarter hour |
-| 9 | Everyone speaks at once, in unison |
-| 10 | A figure standing in a doorway who is not there |
-
-**Slip III (Drift 5)**
-
-| d10 | Slip |
-|---|---|
-| 1 | The walls breathe slowly |
-| 2 | Kind voices explain everything |
-| 3 | The {Belief} in every shadow, gentle |
-| 4 | A warmth like relief in the chest |
-| 5 | {Anchor} smiling, calm, forgiving |
-| 6 | The stones warm as a hand |
-| 7 | The notebook entries seem written by someone else |
-| 8 | A door that opens on a bright, quiet place |
-| 9 | The chant in the investigator's own voice |
-| 10 | The landscape glows, welcoming |
+### 12.2 Distortion content
+Distortion tables belong to the ruleset that uses a distortion module. If the ruleset gives none, build distortions from a fear seed and a concrete detail of the scene, always with a tell.
 
 ---
 
@@ -926,8 +883,8 @@ Use these when the module calls for a Slip (rules §5.1). Choose the table by Dr
 
 ## 14. Quick reminders
 
-- The oracle gives ideas, not Core Clues.
-- A Slip never carries a Core Clue and never creates a lethal outcome without a warning cue and a chance to question it.
+- The oracle gives ideas, not essential clues.
+- A distortion never carries an essential clue and never creates a lethal outcome without a warning cue and a chance to question it.
 - Keep distortion a minority of the text. Mundane details make the wrong ones hurt.
 - Every strange thing has a rational cause the GM knows.
 - If a result clashes with the adventure file, the adventure file wins.
@@ -937,13 +894,13 @@ Use these when the module calls for a Slip (rules §5.1). Choose the table by Dr
 
 ## 15. Emergent adventure kit
 
-Use this for `generated_full` and `generated_emergent` games (file 01 §16). Everything here is private to the AI Master. All dice come from the stream and are logged.
+Use this for `generated_full` and `generated_emergent` games (protocol §16). Everything here is private to the AI Master. All dice come from the stream and are logged.
 
 ### 15.1 The seed (stored as the GM-only adventure record)
 
 Roll or choose, then make the parts coherent.
 
-1. Setting archetype and why the investigators cannot just leave (§5).
+1. Setting archetype and why the characters cannot just leave (§5).
 2. The Mundane Cause: source, delivery, concealment and human factor (§8).
 3. Hook, stake, time pressure and, optionally, a twist (§3).
 4. The antagonist: motivation, method and weakness (§9).
@@ -952,7 +909,7 @@ Roll or choose, then make the parts coherent.
 7. The clock in ticks (§15.5).
 8. If a hazard fits: its zones and cues (§5, §8).
 
-Write each as one or two plain sentences. State the rational truth first.
+Write each as one or two plain sentences. State the truth first.
 
 ### 15.2 Creating things as they are reached
 
@@ -961,11 +918,11 @@ Write each as one or two plain sentences. State the rational truth first.
 - **A document or item:** Item type, Condition, Document type and What it shows (§7).
 - **A rumor, an unwanted attention, an event:** §13 and §10.
 
-Save each one immediately (file 01 §10).
+Save each one immediately (protocol §10).
 
 ### 15.3 Clue routes
 
-For each essential conclusion create at least three routes (the three-clue rule). Choose route types from the table, tie each to an ability that some investigator actually has, and add a Simple Search route. Never route a Core Clue through a Slip.
+For each essential conclusion create at least three routes (the three-clue rule). Choose route types from the table, tie each to an ability that some character actually has, and add a Simple Search route. Never route an essential clue through a distortion.
 
 **Route type (d10)**
 
@@ -984,7 +941,7 @@ For each essential conclusion create at least three routes (the three-clue rule)
 
 ### 15.4 NPC quick stats
 
-**Tier (d6)**: 1 Frail, 2 to 3 Ordinary, 4 to 5 Trained, 6 Dangerous (file 02 §9). Adjust by role: orderlies, guards and constables are Trained at least.
+**Tier (d6)**: 1 Frail, 2 to 3 Ordinary, 4 to 5 Trained, 6 Dangerous (the ruleset's NPC tiers). Adjust by role: orderlies, guards and constables are Trained at least.
 
 ### 15.5 Clock and checkpoints
 
@@ -992,9 +949,9 @@ Set the deadline as a number of ticks. A five-day adventure is five ticks at a d
 
 | Share | What must have happened |
 |---|---|
-| 25% | The first Core Clue is delivered and the hook has paid off |
-| 50% | A twist or a reversal; Heat is 2 to 3 |
-| 75% | The antagonist reacts directly (Heat 4 or more); allies are pressured |
+| 25% | The first essential clue is delivered and the hook has paid off |
+| 50% | A twist or a reversal; the antagonist's pressure is moderate |
+| 75% | The antagonist reacts directly (pressure is high); allies are pressured |
 | 90% | The finale is designed and at least three fair warnings have begun |
 | 100% | The finale resolves in crisis ticks |
 

@@ -1,3 +1,4 @@
 mcp>=1.12,<2
 supabase
-google-genai
+google-genai>=1.50
+PyYAML

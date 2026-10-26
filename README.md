@@ -1,23 +1,81 @@
 # multi-player-mcp-engine
 
-- Each player uses his own free Claude account with MCP connectors, and uses Claude desktop, claude web or claude android as front end.
-- The game state is stored in supabase.
-- The MCP servers are run in Vercel.
-- The AI Master is Google AI Studio (model Gemini 2.5 Pro).
+An asynchronous, multi-player (or solo) tabletop RPG run by an AI Master.
 
-1. Claude -> Vercel (HTTP POST / SSE): Claude contacts Vercel via a standard HTTP POST request. Vercel leaves that request open and uses Server-Sent Events (SSE) to stream the text blocks. The payload wrapped inside this stream strictly follows the open-source MCP JSON-RPC 2.0 protocol standard.
+- Each player uses their own free Claude account with an MCP connector, on Claude desktop, web or Android, as the front end.
+- Game, character and world state live in Supabase.
+- The MCP server runs on Vercel (Python, FastMCP).
+- The AI Master is Google Gemini (`gemini-3.5-flash-lite` by default, thinking level `medium`, both configurable by environment variable).
 
-2. Vercel -> Supabase (JSON): Vercel uses the official Supabase Node.js SDK, which communicates entirely via RESTful API calls. Data going to Supabase and rows returning from Supabase are structured as standard javascript/JSON objects.
+## How a request flows
 
-3. Vercel -> AI Studio (JSON): Vercel uses Google's Gen AI SDK. The prompt text, system logic, and the critical structural instructions are bundled into a JSON payload sent over HTTPS to Google.
+1. **Claude to Vercel** (HTTP POST, optionally SSE): a standard MCP JSON-RPC 2.0 call to `/mcp`.
+2. **Vercel to Supabase**: the server reads the records it needs (Supabase Python client, REST).
+3. **Vercel to Gemini**: the server sends one JSON "envelope" (a state snapshot, server-generated dice, the request) with the AI Master's instructions as the system prompt: protocol, oracles, state contract, the game's ruleset, and the game's adventure.
+4. **Gemini to Vercel**: one JSON response: per-character result facts, state changes, events, decisions, messages. The AI Master is stateless and never writes narration.
+5. **Vercel to Supabase**: the server validates the response in memory, then saves it. Events and decisions are duplicated into the game record and into each concerned character record. Witnesses of an event get their own result item.
+6. **Vercel to Claude**: the server returns only the results for the calling player's characters, plus a `sync` block (player-safe current state) so the client can keep its artifacts.
+7. **Claude**: narrates from the facts and keeps three artifacts (character state, knowledge and plans, story so far). The server data is always the truth.
 
-4. AI Studio -> Vercel (JSON): Instead of generating full storytelling paragraphs, Gemini 2.5 Pro outputs raw, perspective-bounded facts for that specific player.
-	• Example Output: {"success": true, "hp_change": 0, "visible_event": "You successfully pickpocketed the silver key from the sleeping guard without waking him. The guard is still breathing heavily."}
+## Play model
 
-5. Vercel -> Supabase (JSON): Vercel updates the database (e.g., adding the "Silver Key" to the player's inventory array).
+- **Player and character.** A player is a human (id, name, language). A character belongs to one game and holds everything about itself in one record: sheet (maximum and current), inventory, relationships, knowledge, plans, standing orders, safety settings, decisions, events and inbox. A player can have several characters in different games.
+- **Adventure and game.** An adventure is fixed content (a markdown file in `adventures/`, or a generated or imported one in the database). A game is one run of it and holds everything that changes: clock, world facts, events, decisions, scheduled events, messages and ticks.
+- **NPCs and locations** are a fixed definition (in the adventure, or a database record scoped to a game) plus a per-game state record.
+- **Ticks.** Every tick (default 24 hours) the AI Master resolves all queued actions, arbitrates conflicts and returns each player their own results. Solo games can close the tick as soon as the player has acted (`early_close`).
+- **Playing without waiting.** The client answers narration, rules and stat questions locally. Minor actions that affect only one character are resolved at once (they use up that character's Blocks of the tick). Characters in the same place can talk instantly (`say`, handled by the server without calling the AI). Others in the scene see what a character does.
+- **Lethality** (`low`, `moderate`, `high`) is set per game. When a character dies the player is offered a new character, a pregenerated one, or an available NPC, and carries on in the same game.
 
-6. Vercel -> Claude (JSON): Vercel packages Gemini's visible_event facts directly into the MCP JSON-RPC wrapper and streams it back over the open SSE connection.
-	• Example Payload: {"content": [{"type": "text", "text": "METADATA RESULT: Success. Target: Sleeping Guard. Item obtained: Silver Key. Guard status: Unaware."}]}
+## Repository layout
 
-7. Claude User Interface: The player's Claude instance reads that synthetic metadata block from the tool. Because Claude acts as an intelligent agent, it consumes that structured data as a "ground truth fact" and writes the cinematic narrative for the player:
-	• Claude's Output: "Holding your breath, you slip your fingers into the guard's rusted chainmail pouch. Your knuckles brush against cold metal as you carefully slide out a heavy silver key. The guard snorts and rolls over, but his deep snores continue. You step back into the shadows, key in hand."
+| Path | Contents |
+|---|---|
+| `gm/` | AI Master files, independent of any ruleset or adventure: `protocol.md`, `oracles.md`, `state_and_messages.md`; and `player_client_brief.md` for the player's Claude (served as MCP instructions) |
+| `rulesets/` | One markdown file per ruleset, with YAML front matter (`id`, `title`, ...). Currently `fear_itself.md` |
+| `adventures/` | One markdown file per adventure, with front matter (`id`, `ruleset`, `players`, `recommended`, ...). Currently `genius_loci_danvers_1925.md` |
+| `server/` | The Python server: `app.py` (gateway and MCP), `tools.py`, `engine.py`, `apply.py`, `db.py`, `prompt.py`, `gm.py`, `redact.py`, `dice.py`, `files.py`, `config.py` |
+| `api/index.py` | Vercel entry point |
+| `supabase/schema.sql` | Tables (`gm_*`) to create in Supabase |
+| `tests/` | Unit tests with an in-memory database and a scripted AI Master |
+
+To add a ruleset or an adventure, drop a markdown file with front matter into `rulesets/` or `adventures/`. An adventure names its ruleset in `ruleset:`.
+
+## MCP tools (for players)
+
+| Tool | Purpose |
+|---|---|
+| `list_adventures` | Adventures (files and the player's generated ones) and rulesets |
+| `generate_adventure` | New adventure from a seed or from a document |
+| `create_game` | New game run from an adventure (lethality, tick settings) |
+| `join_game` | Join a game by id |
+| `generate_character` | Generate, pick a pregenerated, provide or (as a replacement) convert an NPC |
+| `submit_action` | Actions, speech, setup answers, character confirmation, standing orders, decisions, messages, free queries, pause |
+| `get_results` | Collect results not yet delivered |
+| `get_character`, `get_rules`, `save_story_summary` | Resync, read the ruleset, store the client's story summary |
+
+`resolve_tick` is **not** a player tool. It is an HTTP endpoint for the server side: `GET|POST /internal/resolve_tick` (optional `?game_id=`), protected by `Authorization: Bearer $CRON_SECRET`. Without `game_id` it resolves every game whose tick is due. Call it from a scheduler (Vercel Cron, a GitHub Action, or any cron).
+
+## Setup
+
+1. Run `supabase/schema.sql` in the Supabase SQL editor.
+2. Environment variables on Vercel:
+   - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+   - `GEMINI_API_KEY`; optional `GEMINI_MODEL` (default `gemini-3.5-flash-lite`) and `GEMINI_THINKING_LEVEL` (default `medium`)
+   - `MCP_API_KEY`: the shared key for players (`Authorization: Bearer`, `x-api-key`, or `?key=` in the connector URL)
+   - `CRON_SECRET`: for `/internal/resolve_tick`
+3. Players add `https://<your-app>.vercel.app/mcp?key=<MCP_API_KEY>` as a custom connector.
+4. Schedule `/internal/resolve_tick`. Vercel Hobby cron runs at most once a day, so use an external scheduler for hourly checks.
+
+## Tests
+
+```
+pip install -r requirements.txt pytest
+pytest tests
+```
+
+## Known limits
+
+- **Authentication is one shared key.** A player is identified by the `player_id` they send, so a player with the key could impersonate another. Per-player keys or OAuth would fix this.
+- **Cross-record writes are not one database transaction.** The server validates everything in memory and saves with optimistic version checks, so a rejected AI response changes nothing, but a crash in the middle of saving could leave records out of step.
+- **Vercel limits.** `maxDuration` is 60 seconds. A tick with many characters and a large thinking budget may need more (Pro plan).
+- **The AI Master is an LLM.** The server enforces structure, ownership of fields, dice, and the lethality guard, but the AI's judgement on secrecy and fairness is not machine-checked. A lite model on a long, rule-dense JSON task is unbenchmarked here, so `GEMINI_MODEL` can be changed without code changes.
