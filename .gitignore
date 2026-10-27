@@ -3,3 +3,6 @@ __pycache__/
 .pytest_cache/
 .env
 .vercel/
+
+# adventures hold secrets and live in the PRIVATE repository jvpreck/rpg_adventures. Never commit them here.
+adventures/

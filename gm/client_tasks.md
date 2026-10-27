@@ -79,5 +79,6 @@ Steps:
    - **Time step:** how often the world advances (default every 24 hours) and how much game time that covers (a day, or a Block).
    - **PvP stance:** `none`, `soft` (default), `full`.
    - Solo or with others. If with others, tell them the game id will be given after creation so they can share it.
-3. **Submit** with `submit_package`: `title`, `language`, `display_name`, `lethality`, `pace`, `tick_interval_hours`, `tick_span`, `pvp`, `notes`.
+   - **Visibility:** `private` (default: only people who are given the game id can join) or `open` (the game is listed for any registered player to find and join while it has free seats).
+3. **Submit** with `submit_package`: `title`, `language`, `display_name`, `lethality`, `pace`, `tick_interval_hours`, `tick_span`, `pvp`, `visibility`, `notes`.
 4. **When the server answers,** give the player the `game_id`, show the setup questions the server returns, and carry on with character creation (`generate_character`).

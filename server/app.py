@@ -7,11 +7,12 @@ from urllib.parse import parse_qs
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-from . import config, files, tools
-from .engine import Engine
+from . import admin, config, files, tools
+from .engine import Engine, EngineError
 
 MCP_KEY_ENV = "MCP_API_KEY"
 CRON_ENV = "CRON_SECRET"
+ADMIN_ENV = "ADMIN_SECRET"
 
 
 def build_engine():
@@ -54,7 +55,8 @@ class Gateway:
     """Authentication and the internal tick endpoint, in front of the MCP app.
 
     /mcp and everything else: shared key (`Authorization: Bearer`, `x-api-key` or `?key=`), MCP_API_KEY.
-    /internal/*: CRON_SECRET only (Bearer). Both fail closed when the secret is unset. 403, not 401, so clients do not start OAuth.
+    /internal/resolve_tick: CRON_SECRET only (Bearer). /internal/admin: ADMIN_SECRET only (Bearer), host commands (see admin.py).
+    Each secret fails closed when unset. 403, not 401, so clients do not start OAuth.
     """
 
     def __init__(self, mcp_app, engine):
@@ -81,10 +83,37 @@ class Gateway:
                     "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode())]})
         await send({"type": "http.response.body", "body": body})
 
+    def _admin_ok(self, scope):
+        return _matches(os.environ.get(ADMIN_ENV, ""), [self._bearer(_headers(scope))])
+
+    @staticmethod
+    async def _body(receive):
+        data = b""
+        while True:
+            m = await receive()
+            data += m.get("body", b"")
+            if not m.get("more_body"):
+                return data
+
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
         path = scope.get("path", "")
+        if path == "/internal/admin":
+            if not self._admin_ok(scope):
+                return await self._json(send, 403, {"error": "forbidden"})
+            if scope.get("method", "POST") != "POST":
+                return await self._json(send, 405, {"error": "use POST"})
+            try:
+                req = json.loads((await self._body(receive)) or b"{}")
+                out = admin.run(self.engine, req.get("command"), req.get("args") or {})
+            except (ValueError, AttributeError):
+                return await self._json(send, 400, {"error": "send JSON: {\"command\": ..., \"args\": {...}}"})
+            except EngineError as e:
+                return await self._json(send, 400, {"error": str(e)})
+            except Exception as e:
+                return await self._json(send, 500, {"error": str(e)[:300]})
+            return await self._json(send, 200, out)
         if path.startswith("/internal/"):
             if not self._cron_ok(scope):
                 return await self._json(send, 403, {"error": "forbidden"})

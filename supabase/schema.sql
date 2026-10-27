@@ -63,3 +63,9 @@ alter table gm_location_states enable row level security;
 alter table gm_submit_actions enable row level security;
 alter table gm_tasks enable row level security;
 -- No policies: only the service role (the MCP server) can read or write.
+
+-- Secret player keys. The key itself is never stored: the row id is its SHA-256 hash and `data` holds the player id.
+create table if not exists gm_keys (
+  id text primary key, data jsonb not null, version int not null default 1,
+  player_id text, updated_at timestamptz not null default now());
+alter table gm_keys enable row level security;

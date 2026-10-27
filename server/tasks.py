@@ -37,7 +37,7 @@ SCHEMAS = {
     "create_game": {
         "title": "string", "language": "string", "display_name": "string",
         "lethality": "low | moderate | high", "pace": "string", "tick_interval_hours": "int", "tick_span": "day | block",
-        "pvp": "none | soft | full", "notes": "string"},
+        "pvp": "none | soft | full", "visibility": "private | open", "notes": "string"},
 }
 
 
@@ -90,7 +90,7 @@ def game_context(adventure, defaults):
                           "recommended": adventure.get("recommended"), "pace_options": adventure.get("pace_options"),
                           "language": adventure.get("language")},
             "ruleset_id": adventure.get("ruleset_id"), "defaults": defaults,
-            "options": {"lethality": ["low", "moderate", "high"], "tick_span": ["day", "block"], "pvp": ["none", "soft", "full"]},
+            "options": {"lethality": ["low", "moderate", "high"], "tick_span": ["day", "block"], "pvp": ["none", "soft", "full"], "visibility": ["private", "open"]},
             "explanations": {"lethality": lethality_help()}}
 
 
@@ -212,6 +212,8 @@ def validate_game(p, adventure):
         problems.append("tick_interval_hours must be 1 to 168")
     if p.get("pvp", "soft") not in ("none", "soft", "full"):
         problems.append("pvp must be none, soft or full")
+    if p.get("visibility", "private") not in ("private", "open"):
+        problems.append("visibility must be private or open")
     po = adventure.get("pace_options") or []
     if p.get("pace") and po and p["pace"] not in po:
         problems.append(f"pace must be one of {po}")

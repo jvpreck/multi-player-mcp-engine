@@ -69,7 +69,7 @@ The server may store each record as a table row with a `data` JSONB column plus 
   "id": "quiet_mill_1930",
   "title": "The Quiet Mill, 1930",
   "source": "file",
-  "file": "adventures/quiet_mill_1930.md",
+  "file": "rpg_adventures/quiet_mill_1930.md",
   "content": null,
   "ruleset_id": "example_ruleset",
   "generation": "supplied",
@@ -85,7 +85,7 @@ The server may store each record as a table row with a `data` JSONB column plus 
 }
 ```
 
-- `source`: `file` (the adventure is a markdown file in `adventures/`), `generated` (you wrote it; the text is in `content`) or `imported` (the server converted a player's document into the module format; the text is in `content`).
+- `source`: `file` (the adventure is a markdown file in the private adventures repository), `generated` (you wrote it; the text is in `content`) or `imported` (the server converted a player's document into the module format; the text is in `content`).
 - `generation`: `supplied`, `full` (a complete secret plan) or `emergent` (a short secret `seed` only; the rest is created during each run).
 - **An adventure never changes because of a run.** For an emergent adventure, the `seed` is fixed. Everything you create from the seed while a run unfolds is run data (new NPCs and locations with `scope.game_id`, world facts, and so on).
 - `summary` is player-safe. `content`, `seed` and the adventure file's GM-only parts are GM-only.

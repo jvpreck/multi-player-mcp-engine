@@ -8,7 +8,7 @@ from server import files, prompt, config
 from server.db import MemoryStore
 from server.engine import Engine, EngineError
 
-ADV = "genius_loci_danvers_1925"
+ADV = "test_adventure"
 
 
 CHECK = {"fail_next": 0, "payloads": []}
@@ -117,7 +117,7 @@ def new_game(eng, player, adv=ADV, language=None, settings=None):
     out = eng.create_game(player, adv, language=language, settings=settings)
     pkg = out["package"]
     s = settings or {}
-    return eng.submit_package(player, pkg["task_id"], game_pkg(**{k: v for k, v in s.items() if k in ("lethality", "pvp", "pace", "tick_span", "tick_interval_hours")}))
+    return eng.submit_package(player, pkg["task_id"], game_pkg(**{k: v for k, v in s.items() if k in ("lethality", "pvp", "pace", "tick_span", "tick_interval_hours", "visibility")}))
 
 
 def char_pkg(name="Iris Calder", concept="a reporter", **kw):
@@ -147,7 +147,7 @@ def world():
 def start_solo(eng, player="p_jorge"):
     out = new_game(eng, player, ADV, language="en")
     gid = out["game_id"]
-    ch = eng.generate_character(player, gid, "pregen", pregen_id="pregen_eleanor_vance")
+    ch = eng.generate_character(player, gid, "pregen", pregen_id="pregen_test_pc")
     cid = ch["deliveries"][0]["character_id"]
     eng.submit_action(player, gid, "character_confirm", "yes", cid, {"approved": True})
     return gid, cid
@@ -170,15 +170,6 @@ def test_gm_files_are_independent_of_ruleset_and_adventure():
         text = files.gm_file(name)
         hits = banned.findall(text)
         assert not hits, (name, hits[:5])
-
-
-def test_every_markdown_cross_reference_resolves():
-    # "the ruleset §4.6" style references in the adventure must exist as headings in the ruleset
-    rs = files.rulesets()["fear_itself"]["body"]
-    heads = set(re.findall(r"^#+\s+(\d+(?:\.\d+)*)\.? ", rs, re.M))
-    adv = files.adventure_files()[ADV]["body"]
-    for ref in re.findall(r"ruleset §(\d+(?:\.\d+)*)", adv):
-        assert ref in heads, ref
 
 
 # ---------------------------------------------------------------- game flow

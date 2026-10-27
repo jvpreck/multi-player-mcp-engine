@@ -1,0 +1,41 @@
+# Host-only administration of the game server.
+# Only people with WRITE access to this repository can run a workflow, so players (read-only) cannot.
+# Repository secrets needed (Settings > Secrets and variables > Actions):
+#   SERVER_URL    the base URL of the deployed server, e.g. https://your-app.vercel.app  (no trailing slash)
+#   ADMIN_SECRET  the same value as the server's ADMIN_SECRET environment variable
+# This repository is public, so the output of a run can be read by anyone. Only commands whose output is harmless are offered here.
+# The listing commands (they show game ids), get_game (it shows secrets) and reset_player_key (it returns a key) must be run from your
+# own computer with curl (see the README).
+name: admin
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: Admin command
+        required: true
+        type: choice
+        options: [delete_game, close_game, delete_adventure, delete_player, purge_tasks]
+      args:
+        description: 'Arguments as JSON, e.g. {"game_id": "g_1234abcd"}'
+        required: false
+        default: "{}"
+permissions:
+  contents: read
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the admin endpoint
+        env:
+          SERVER_URL: ${{ secrets.SERVER_URL }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+          COMMAND: ${{ inputs.command }}
+          ARGS: ${{ inputs.args }}
+        run: |
+          set -euo pipefail
+          body=$(jq -cn --arg c "$COMMAND" --argjson a "${ARGS:-{\}}" '{command:$c,args:$a}')
+          # the output goes to the job summary; only non-sensitive commands are offered above
+          curl -sS -X POST "$SERVER_URL/internal/admin" \
+            -H "Authorization: Bearer $ADMIN_SECRET" -H "Content-Type: application/json" \
+            -d "$body" -o out.json -w "HTTP %{http_code}\n"
+          { echo "### admin: $COMMAND"; echo '```json'; jq . out.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

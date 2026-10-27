@@ -58,3 +58,41 @@ def test_gateway_fails_closed(monkeypatch):
     gw = Gateway(Inner(), FakeEngine())
     assert run(gw, "/mcp", {"authorization": "Bearer "})[0]["status"] == 403
     assert run(gw, "/internal/resolve_tick", {"authorization": "Bearer "})[0]["status"] == 403
+
+
+class AdminEngine(FakeEngine):
+    def __init__(self):
+        self.store = None
+
+
+def test_admin_endpoint_needs_its_own_secret(monkeypatch):
+    from server import admin
+    monkeypatch.setenv("MCP_API_KEY", "k1")
+    monkeypatch.setenv("CRON_SECRET", "c1")
+    monkeypatch.setenv("ADMIN_SECRET", "a1")
+    seen = []
+    monkeypatch.setattr(admin, "run", lambda eng, cmd, args=None: seen.append((cmd, args)) or {"ok": cmd})
+    gw = Gateway(Inner(), FakeEngine())
+
+    async def post(headers, body=b'{"command": "list_games", "args": {}}'):
+        sent = []
+
+        async def receive():
+            return {"type": "http.request", "body": body}
+
+        async def send(m):
+            sent.append(m)
+        await gw({"type": "http", "method": "POST", "path": "/internal/admin", "query_string": b"",
+                  "headers": [(k.encode(), v.encode()) for k, v in headers.items()]}, receive, send)
+        return sent
+    for tok in ("k1", "c1", ""):                       # the player key and the cron secret do not open it
+        assert asyncio.run(post({"authorization": f"Bearer {tok}"}))[0]["status"] == 403
+    assert seen == []
+    r = asyncio.run(post({"authorization": "Bearer a1"}))
+    assert r[0]["status"] == 200 and json.loads(r[1]["body"]) == {"ok": "list_games"} and seen == [("list_games", {})]
+    assert asyncio.run(post({"authorization": "Bearer a1"}, b"not json"))[0]["status"] == 400
+    # the admin secret does not open the player endpoint or the tick endpoint
+    assert run(gw, "/mcp", {"authorization": "Bearer a1"})[0]["status"] == 403
+    assert run(gw, "/internal/resolve_tick", {"authorization": "Bearer a1"})[0]["status"] == 403
+    monkeypatch.delenv("ADMIN_SECRET")
+    assert asyncio.run(post({"authorization": "Bearer "}))[0]["status"] == 403   # fails closed

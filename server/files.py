@@ -1,5 +1,11 @@
-"""Loads the gm/, rulesets/ and adventures/ markdown files and their front matter."""
+"""Loads the gm/ and rulesets/ markdown files from this repository, and the adventures from the PRIVATE adventures repository
+(or from a local folder when ADVENTURES_DIR is set), with their front matter."""
+import json
+import os
 import re
+import time
+import urllib.parse
+import urllib.request
 from functools import lru_cache
 from pathlib import Path
 
@@ -23,17 +29,23 @@ def read(path: str) -> str:
     return Path(path).read_text(encoding="utf-8")
 
 
+def _parse(name: str, text: str, folder: str):
+    meta, body = split_front_matter(text)
+    if not meta.get("id"):
+        return None
+    meta = dict(meta)
+    meta["file"] = f"{folder}/{name}"
+    return meta["id"], {"meta": meta, "body": body, "path": meta["file"]}
+
+
 def _list(directory: Path):
     out = {}
-    if not directory.exists():
+    if not directory or not directory.exists():
         return out
     for p in sorted(directory.glob("*.md")):
-        meta, body = split_front_matter(read(str(p)))
-        if not meta.get("id"):
-            continue
-        meta = dict(meta)
-        meta["file"] = f"{directory.name}/{p.name}"
-        out[meta["id"]] = {"meta": meta, "body": body, "path": str(p)}
+        r = _parse(p.name, read(str(p)), directory.name)
+        if r:
+            out[r[0]] = r[1]
     return out
 
 
@@ -41,8 +53,64 @@ def rulesets():
     return _list(config.RULESETS_DIR)
 
 
+class AdventureSourceError(Exception):
+    """The private adventures repository could not be read."""
+
+
+_cache = {"at": 0.0, "key": None, "data": {}}
+
+
+def clear_adventure_cache():
+    _cache.update({"at": 0.0, "key": None, "data": {}})
+
+
+def _github_get(url: str, raw: bool = False) -> bytes:
+    token = os.environ.get("GITHUB_TOKEN", "")
+    if not token:
+        raise AdventureSourceError("GITHUB_TOKEN is not set, so the private adventures repository cannot be read")
+    req = urllib.request.Request(url, headers={
+        "Authorization": f"Bearer {token}", "User-Agent": "multi-player-mcp-engine",
+        "Accept": "application/vnd.github.raw+json" if raw else "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28"})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return r.read()
+    except Exception as e:  # network, 401, 403, 404
+        raise AdventureSourceError(f"could not read the adventures repository ({type(e).__name__})") from None
+
+
+def _from_github() -> dict:
+    repo, ref = config.ADVENTURES_REPO, urllib.parse.quote(config.ADVENTURES_REF)
+    base = f"https://api.github.com/repos/{repo}/contents"
+    listing = json.loads(_github_get(f"{base}/?ref={ref}"))
+    out = {}
+    for item in listing:
+        name = item.get("name", "")
+        if item.get("type") != "file" or not name.endswith(".md") or name.lower() == "readme.md":
+            continue
+        text = _github_get(f"{base}/{urllib.parse.quote(name)}?ref={ref}", raw=True).decode("utf-8")
+        r = _parse(name, text, "rpg_adventures")
+        if r:
+            out[r[0]] = r[1]
+    return out
+
+
 def adventure_files():
-    return _list(config.ADVENTURES_DIR)
+    """Adventure files by id. Cached for ADVENTURES_CACHE_SECONDS; a stale copy is served if the repository is unreachable."""
+    if config.ADVENTURES_DIR:
+        return _list(config.ADVENTURES_DIR)
+    key = (config.ADVENTURES_REPO, config.ADVENTURES_REF)
+    now = time.time()
+    if _cache["key"] == key and now - _cache["at"] < config.ADVENTURES_CACHE_SECONDS:
+        return _cache["data"]
+    try:
+        data = _from_github()
+    except AdventureSourceError:
+        if _cache["key"] == key and _cache["data"]:
+            return _cache["data"]
+        raise
+    _cache.update({"at": now, "key": key, "data": data})
+    return data
 
 
 def gm_file(name: str) -> str:
@@ -63,13 +131,15 @@ def adventure_record_from_file(entry: dict) -> dict:
     }
 
 
+_PART_A = re.compile(r"^# PART A", re.M)
 _PART_B = re.compile(r"^# PART B", re.M)
 
 
 def player_safe_part(body: str) -> str:
-    """Everything before the GM-only Part B. If there is no marker, nothing is player-safe."""
-    m = _PART_B.search(body or "")
-    return body[:m.start()].rstrip() if m else ""
+    """Only Part A: from the `# PART A` heading up to `# PART B`. The introduction above Part A is NOT shown (it may carry spoilers).
+    If either marker is missing, nothing is player-safe."""
+    a, b = _PART_A.search(body or ""), _PART_B.search(body or "")
+    return body[a.start():b.start()].rstrip() if a and b and a.start() < b.start() else ""
 
 
 def client_task_sections() -> dict:
@@ -81,4 +151,14 @@ def client_task_sections() -> dict:
         name = parts[i]
         key = "common" if name.startswith("COMMON") else name.split(":")[1].strip()
         out[key] = parts[i + 1].strip()
+    return out
+
+
+def setup_guide_sections() -> dict:
+    """gm/setup_guide.md split by '## [key] Title'. Returns {key: {"title", "text"}}; the intro is under 'intro'."""
+    text = split_front_matter(gm_file("setup_guide.md"))[1]
+    parts = re.split(r"^## \[(\w+)\] (.*)$", text, flags=re.M)
+    out = {"intro": {"title": "Player Setup Guide", "text": parts[0].strip()}}
+    for i in range(1, len(parts) - 2, 3):
+        out[parts[i]] = {"title": parts[i + 1].strip(), "text": parts[i + 2].strip().strip("-").strip()}
     return out

@@ -1,7 +1,9 @@
 """The engine: every operation the MCP tools and the tick endpoint perform."""
 import copy
+import hashlib
 import json
 import re
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -72,7 +74,10 @@ class Engine:
     def _adventure(self, ws, adventure_id):
         a = ws.get("adventure", adventure_id)
         if a is None:
-            entry = files.adventure_files().get(adventure_id)
+            try:
+                entry = files.adventure_files().get(adventure_id)
+            except files.AdventureSourceError as e:
+                raise EngineError(f"the supplied adventures cannot be read right now ({e})")
             if not entry:
                 raise EngineError(f"unknown adventure {adventure_id}")
             a = files.adventure_record_from_file(entry)
@@ -309,11 +314,95 @@ class Engine:
         out.update(extra or {})
         return out
 
+    # ---------------------------------------------------------- accounts
+    KEY_PREFIX = "pk_"
+
+    @staticmethod
+    def key_hash(key):
+        return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
+    def _new_key(self, ws, pid):
+        key = self.KEY_PREFIX + secrets.token_urlsafe(32)
+        ws.put("key", self.key_hash(key), {"id": self.key_hash(key), "player_id": pid, "created_at": iso(self.now())})
+        return key
+
+    def register_player(self, display_name="", language="en"):
+        """Creates a player with a random id and returns the secret key once. Only the key's hash is stored."""
+        pid = "p_" + secrets.token_hex(8)
+        ws = self._ws()
+        p = self._player(ws, pid, (display_name or "").strip()[:60] or None, language or "en")
+        p["registered_at"] = iso(self.now())
+        key = self._new_key(ws, pid)
+        ws.commit()
+        return {"player_key": key, "display_name": p["display_name"],
+                "note": "This is the player's secret key. Keep it, send it with every request, never show it to anyone else. "
+                        "It is shown only now. If it is lost, only the host can issue a new one."}
+
+    def authenticate(self, key):
+        """Secret key -> internal player id. Unknown or malformed keys are refused without saying which."""
+        if not isinstance(key, str) or not key.startswith(self.KEY_PREFIX) or not (40 <= len(key) <= 120):
+            raise EngineError("unknown player key. A new player must call register_player first")
+        row = self.store.get("key", self.key_hash(key))[0]
+        if row is None or self.store.get("player", row["player_id"])[0] is None:
+            raise EngineError("unknown player key. A new player must call register_player first")
+        return row["player_id"]
+
+    def setup_guide(self, topic=""):
+        secs = files.setup_guide_sections()
+        t = (topic or "").strip().lower()
+        if t in ("", "all"):
+            return {"topics": [{"key": k, "title": v["title"]} for k, v in secs.items() if k != "intro"],
+                    "guide": "\n\n".join((f"## {v['title']}\n\n" if k != "intro" else "") + v["text"] for k, v in secs.items()),
+                    "note": "Relay it in the player's language. Show only what the player asked for."}
+        if t not in secs or t == "intro":
+            raise EngineError("unknown topic. Topics: " + ", ".join(k for k in secs if k != "intro"))
+        return {"topic": t, "title": secs[t]["title"], "guide": secs[t]["text"]}
+
+    def list_games(self, player_id):
+        ws = self._ws()
+        me = self._player(ws, player_id)
+        mine, open_ = [], []
+        for g, _ in self.store.find("game"):
+            joined = any(r["player_id"] == player_id for r in g.get("roster", []))
+            vis = (g.get("settings") or {}).get("visibility", "private")
+            if not joined and not (vis == "open" and g.get("phase") in ("setup", "active")):
+                continue
+            adv = ws.get("adventure", g["adventure_id"])
+            if adv is None:
+                try:
+                    e = files.adventure_files().get(g["adventure_id"])
+                except files.AdventureSourceError:
+                    e = None
+                adv = files.adventure_record_from_file(e) if e else {}
+            maxp = (adv.get("players") or {}).get("max", 5)
+            host = ws.get("player", g.get("host_player_id"))
+            row = {"game_id": g["id"], "title": g.get("title"), "adventure": adv.get("title"), "era": adv.get("era"), "phase": g.get("phase"),
+                   "players": f"{len(g.get('roster', []))}/{maxp}", "tick_interval_hours": (g.get("settings") or {}).get("tick_interval_hours"),
+                   "lethality": (g.get("settings") or {}).get("lethality"), "pvp": (g.get("settings") or {}).get("pvp"),
+                   "language": g.get("language"), "host": (host or {}).get("display_name"), "tick": (g.get("clock") or {}).get("tick")}
+            if joined:
+                row["my_character"] = next((c.get("name") or c["id"] for c in ws.find("character", game_id=g["id"], player_id=player_id)
+                                            if c.get("is_alive", True)), None)
+                mine.append(row)
+            elif len(g.get("roster", [])) < maxp:
+                open_.append(row)
+        return {"my_games": mine, "open_games": open_,
+                "note": "To join an open game use join_game with its game_id. A private game can be joined only with its id."}
+
     # ---------------------------------------------------------- catalog / tools
+    def _adventure_files(self):
+        try:
+            return files.adventure_files()
+        except files.AdventureSourceError as e:
+            self.adventure_source_error = str(e)
+            return {}
+
+    adventure_source_error = None
+
     def adventure_catalog(self, player_id):
         out = [{"id": k, "title": v["meta"].get("title"), "ruleset": v["meta"].get("ruleset"), "players": v["meta"].get("players"),
                 "era": v["meta"].get("era"), "summary": v["meta"].get("summary"), "source": "file"}
-               for k, v in files.adventure_files().items()]
+               for k, v in self._adventure_files().items()]
         for d, _ in self.store.find("adventure"):
             if d.get("owner_player_id") in (None, player_id):
                 out.append({"id": d["id"], "title": d.get("title"), "ruleset": d.get("ruleset_id"), "players": d.get("players"),
@@ -321,7 +410,11 @@ class Engine:
         return out
 
     def list_adventures(self, player_id):
-        return {"adventures": self.adventure_catalog(player_id),
+        self.adventure_source_error = None
+        cat = self.adventure_catalog(player_id)
+        extra = {"warning": "The supplied adventures could not be read right now (" + self.adventure_source_error + "). Try again later."} \
+            if self.adventure_source_error else {}
+        return {"adventures": cat, **extra,
                 "rulesets": [{"id": k, "title": v["meta"].get("title"), "summary": v["meta"].get("summary")} for k, v in files.rulesets().items()]}
 
     def get_rules(self, ruleset_id):
@@ -353,7 +446,7 @@ class Engine:
             raise EngineError(f"the adventure needs ruleset {adv.get('ruleset_id')}, which this server does not have")
         rec = adv.get("recommended") or {}
         s = {"tick_interval_hours": rec.get("tick_interval_hours", 24), "tick_span": rec.get("tick_span", "day"),
-             "early_close": None, "pace": "slow", "pvp": "soft", "lethality": rec.get("lethality", "moderate"),
+             "early_close": None, "pace": "slow", "pvp": "soft", "visibility": "private", "lethality": rec.get("lethality", "moderate"),
              "tone_preset": None, "modules": [], "setup_deadline": iso(self.now() + timedelta(days=3)),
              "crisis": {"active": False, "tick_span": "beat", "tick_interval_hours": 24}}
         for k, v in (settings or {}).items():
@@ -469,7 +562,7 @@ class Engine:
                         "lethality": (params.get("settings") or {}).get("lethality") or rec.get("lethality", "moderate"),
                         "tick_interval_hours": (params.get("settings") or {}).get("tick_interval_hours") or rec.get("tick_interval_hours", 24),
                         "tick_span": (params.get("settings") or {}).get("tick_span") or rec.get("tick_span", "day"),
-                        "pvp": (params.get("settings") or {}).get("pvp") or "soft", "pace": "slow"}
+                        "pvp": (params.get("settings") or {}).get("pvp") or "soft", "pace": "slow", "visibility": "private"}
             ctx = tasks.game_context(adv, defaults)
         elif kind == "generate_character":
             game = self._game(ws, params["game_id"])
@@ -544,7 +637,7 @@ class Engine:
             problems = tasks.validate_game(package, adv)
             if problems:
                 return reject(problems)
-            s = {k: package[k] for k in ("lethality", "tick_span", "tick_interval_hours", "pvp", "pace") if package.get(k)}
+            s = {k: package[k] for k in ("lethality", "tick_span", "tick_interval_hours", "pvp", "pace", "visibility") if package.get(k)}
             out = self._create_game(player_id, params["adventure_id"], package.get("title") or params.get("title"),
                                     package.get("language") or params.get("language"), s, package.get("display_name") or params.get("display_name"))
             done({"game_id": out["game_id"]})

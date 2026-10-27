@@ -25,6 +25,9 @@ class MemoryStore:
         self.t[kind][id_] = {"data": copy.deepcopy(data), "version": cur + 1, "index": dict(index or {})}
         return cur + 1
 
+    def delete(self, kind, id_):
+        self.t[kind].pop(id_, None)
+
     def find(self, kind, **flt):
         out = []
         for id_, row in self.t[kind].items():
@@ -66,6 +69,9 @@ class SupabaseStore:
             raise Conflict(f"{kind}:{id_} changed")
         return version + 1
 
+    def delete(self, kind, id_):
+        self._tbl(kind).delete().eq("id", id_).execute()
+
     def find(self, kind, **flt):
         q = self._tbl(kind).select("data,version")
         for k, v in flt.items():
@@ -94,6 +100,8 @@ def index_for(kind, doc):
         return {"owner_player_id": doc.get("owner_player_id")}
     if kind == "task":
         return {"player_id": doc["player_id"], "status": doc.get("status")}
+    if kind == "key":
+        return {"player_id": doc.get("player_id")}
     return {}
 
 
