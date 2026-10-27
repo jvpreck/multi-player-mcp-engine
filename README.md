@@ -105,7 +105,7 @@ Each game has a setting `illustrations` (`off` by default, `on` chosen when the 
 - **The host is also a player.** Register in a dedicated chat like anyone else, with a normal key and normal rights. Never put `ADMIN_SECRET` in a chat with Claude.
 - **Lost key.** The host runs `reset_player_key` for that player and gives them the new key privately. The player's characters and games are unchanged.
 
-`resolve_tick` is **not** a player tool. It is an HTTP endpoint for the server side: `GET|POST /internal/resolve_tick` (optional `?game_id=`), protected by `Authorization: Bearer $CRON_SECRET`. Without `game_id` it resolves every game whose tick is due. Call it from a scheduler (Vercel Cron, a GitHub Action, or any cron).
+`resolve_tick` is **not** a player tool. It is an HTTP endpoint for the server side: `GET|POST /internal/resolve_tick` (optional `?game_id=`), protected by `Authorization: Bearer $CRON_SECRET`. Without `game_id` it resolves every game whose tick is due. It is called by the `tick` GitHub Actions workflow (or any cron).
 
 ## Setup
 
@@ -120,7 +120,7 @@ Each game has a setting `illustrations` (`off` by default, `on` chosen when the 
    - Illustrations (optional): `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` (an API token that may use Workers AI). Without them the option is simply not offered. Optional: `IMAGE_MODEL` (default `@cf/black-forest-labs/flux-1-schnell`), `IMAGE_STEPS` (4, at most 8), `IMAGE_STYLE`, `IMAGE_RPD`, `IMAGE_RPM`, `IMAGE_URL_TTL_SECONDS`, `IMAGES_PER_RUN`
    - `GITHUB_TOKEN`: a **fine-grained personal access token** with *Contents: read-only* on the single repository `jvpreck/rpg_adventures`. The server uses it to read the adventures. Optional: `ADVENTURES_REPO` (default `jvpreck/rpg_adventures`), `ADVENTURES_REF` (default `main`), `ADVENTURES_CACHE_SECONDS` (default 300)
 3. Players add `https://<your-app>.vercel.app/mcp?key=<MCP_API_KEY>` as a custom connector.
-4. Schedule `/internal/resolve_tick`. Vercel Hobby cron runs at most once a day, so use an external scheduler for hourly checks.
+4. **Scheduler.** The workflow `.github/workflows/tick.yml` calls `/internal/resolve_tick` every 15 minutes (GitHub scheduled runs are best-effort and can start late, which is fine for ticks of hours). It needs two repository secrets, `SERVER_URL` and `CRON_SECRET` (the same value as the Vercel variable), and does nothing until both exist. It prints counts only, because this repository is public. GitHub turns scheduled workflows off after 60 days without repository activity: push anything, or run the workflow by hand, to wake it. You can also run it by hand from the Actions tab (Run workflow). Vercel's own cron on the Hobby plan runs at most once a day, so it is not used.
 
 ## Tests
 

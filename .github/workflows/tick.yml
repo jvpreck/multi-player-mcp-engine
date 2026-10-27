@@ -1,0 +1,41 @@
+# Scheduler: closes the ticks that are due and draws queued pictures, by calling the server's /internal/resolve_tick.
+# Repository secrets needed (Settings > Secrets and variables > Actions):
+#   SERVER_URL   the base URL of the deployed server, e.g. https://your-app.vercel.app  (no trailing slash)
+#   CRON_SECRET  the same value as the server's CRON_SECRET environment variable
+# Until both are set the job does nothing and succeeds.
+# Notes: GitHub runs scheduled workflows on a best-effort basis (a run can start several minutes late), which is fine for ticks of hours.
+# GitHub switches scheduled workflows off after 60 days without any repository activity: push anything, or run this one by hand, to wake it.
+# This repository is public, so the log shows counts only, never game ids or the response body.
+name: tick
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+concurrency:
+  group: tick
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Resolve due ticks
+        env:
+          SERVER_URL: ${{ secrets.SERVER_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SERVER_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "SERVER_URL or CRON_SECRET is not set: nothing to do"
+            exit 0
+          fi
+          code=$(curl -sS -X POST "$SERVER_URL/internal/resolve_tick" \
+            -H "Authorization: Bearer $CRON_SECRET" --max-time 90 -o out.json -w "%{http_code}")
+          echo "HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "the tick endpoint did not answer 200"
+            exit 1
+          fi
+          jq -r '"games checked: \(.checked // 0), ticks resolved: \([.results[]? | select(.resolved == true)] | length), ticks not resolved: \([.results[]? | select(.resolved != true)] | length), pictures drawn: \(.images.generated // 0)"' out.json
