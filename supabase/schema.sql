@@ -69,3 +69,9 @@ create table if not exists gm_keys (
   id text primary key, data jsonb not null, version int not null default 1,
   player_id text, updated_at timestamptz not null default now());
 alter table gm_keys enable row level security;
+
+-- Counters of AI Master requests per tier and day, to stay inside the provider's free-tier quotas.
+create table if not exists gm_usage (
+  id text primary key, data jsonb not null, version int not null default 1,
+  updated_at timestamptz not null default now());
+alter table gm_usage enable row level security;

@@ -18,9 +18,10 @@ ADMIN_ENV = "ADMIN_SECRET"
 def build_engine():
     from supabase import create_client
     from .db import SupabaseStore
-    from .gm import GeminiGM
+    from .gm import GeminiGM, Usage
     sb = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
-    return Engine(SupabaseStore(sb), GeminiGM())
+    store = SupabaseStore(sb)
+    return Engine(store, GeminiGM(usage=Usage(store)))
 
 
 def client_instructions() -> str:

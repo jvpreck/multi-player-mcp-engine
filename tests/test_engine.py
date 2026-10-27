@@ -19,10 +19,12 @@ class ScriptedGM:
     def __init__(self, rule):
         self.rule = rule
         self.calls = []
+        self.tiers = []
 
-    def call(self, system, user):
+    def call(self, system, user, tier="light"):
         env = json.loads(user)
         self.calls.append((system, env))
+        self.tiers.append(tier)
         return json.dumps(self.rule(env, len(self.calls)))
 
 

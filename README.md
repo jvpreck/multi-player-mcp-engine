@@ -5,7 +5,7 @@ An asynchronous, multi-player (or solo) tabletop RPG run by an AI Master.
 - Each player uses their own free Claude account with an MCP connector, on Claude desktop, web or Android, as the front end.
 - Game, character and world state live in Supabase.
 - The MCP server runs on Vercel (Python, FastMCP).
-- The AI Master is Google Gemini (`gemini-3.5-flash-lite` by default, thinking level `medium`, both configurable by environment variable).
+- The AI Master is Google Gemini, in two tiers (see "The two AI Master models"), always at thinking level `medium` by default.
 
 ## How a request flows
 
@@ -62,10 +62,25 @@ To add a ruleset, drop a markdown file with front matter into `rulesets/`. To ad
 
 **Work packages.** For creative work, the server sends the client a structured package: step-by-step instructions, the ruleset and context needed, the exact schema of the result, and the instruction to return it with `submit_package`. The client does the work locally. The server checks structure and limits, stores the result and, for characters, has the AI Master cross-check the sheet against the rules. A package expires after 48 hours and allows 5 attempts. A client-written adventure is stored as data and fenced in the AI Master's prompt, so it cannot change the protocol. Only join games from hosts you trust.
 
+## The two AI Master models
+
+The free tier gives a strong model few requests (about 20 a day, 5 a minute) and a lighter one many (about 500 a day, 10 a minute). The server uses each where it counts:
+
+| Tier | Model (default) | Used for |
+|---|---|---|
+| `tick` (strong) | `gemini-3.8-flash` | Closing a tick with every player's actions (arbitration, results for all), and cross-checking a character sheet |
+| `light` | `gemini-3.5-flash-lite` | Everything a single player does between ticks: autonomous actions, queries, setup, joining |
+
+- **Counting.** Each request is counted per tier in the `gm_usage` table, per day (the provider's day, Pacific time) and per minute, so every server instance shares the count. The guards sit a little under the real limits.
+- **Strong model over its per-minute limit:** the tick is **deferred**, not degraded. It stays open and the next scheduler run (`/internal/resolve_tick`) retries it.
+- **Strong model's daily quota used up, or it fails with a quota or server error:** the tick is resolved by the light model, and the tick record shows `gm_model` and `gm_degraded` so you can see it. Other errors (a real bug) are not hidden by the fallback.
+- **Light model over its limits:** the player's request waits a few seconds, then gets a plain "the AI Master is busy, try again" message.
+- **Sizing.** Three or four games with 24-hour ticks use about 4 strong requests a day plus the character checks, far under the 18 a day guard. Retries after an invalid AI answer each count as a request. The host command `gm_usage` shows today's counts.
+
 ## Players, keys and the host
 
 - **Player key.** A new player calls `register_player`. The server creates a player with a random id and returns a random secret key (`pk_...`) **once**. Every other player tool takes it as `player_key`. The database stores only the key's SHA-256 hash and never the key. The player's Claude keeps the key in the chat or project and never shows it to anyone. Knowing someone's internal id, or the shared connector key, is not enough to act as them.
-- **Host administration is not reachable by players.** There are no admin tools in MCP. The host commands (`list_games`, `get_game`, `list_players`, `list_adventures`, `delete_game`, `close_game`, `delete_adventure`, `delete_player`, `reset_player_key`, `purge_tasks`) are served at `POST /internal/admin`, which needs `Authorization: Bearer $ADMIN_SECRET`. This is a third secret, different from the players' shared key and from `CRON_SECRET`, and the endpoint is closed when it is not set.
+- **Host administration is not reachable by players.** There are no admin tools in MCP. The host commands (`list_games`, `get_game`, `list_players`, `list_adventures`, `delete_game`, `close_game`, `delete_adventure`, `delete_player`, `reset_player_key`, `purge_tasks`, `gm_usage`) are served at `POST /internal/admin`, which needs `Authorization: Bearer $ADMIN_SECRET`. This is a third secret, different from the players' shared key and from `CRON_SECRET`, and the endpoint is closed when it is not set.
   - **From GitHub:** Actions, `admin`, Run workflow. Only people with write access to this repository can run it (players are readers). It offers `delete_game`, `close_game`, `delete_adventure`, `delete_player` and `purge_tasks` only, because this repository is public and the output of a run is visible to everyone. Repository secrets needed: `SERVER_URL` and `ADMIN_SECRET`.
   - **From your computer:** for listings, `get_game` and `reset_player_key`, which show private data:
     ```
@@ -79,10 +94,11 @@ To add a ruleset, drop a markdown file with front matter into `rulesets/`. To ad
 
 ## Setup
 
-1. Run `supabase/schema.sql` in the Supabase SQL editor (it is safe to run again: it adds the `gm_tasks` and `gm_keys` tables).
+1. Run `supabase/schema.sql` in the Supabase SQL editor (it is safe to run again: it adds the `gm_tasks`, `gm_keys` and `gm_usage` tables).
 2. Environment variables on Vercel:
    - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
-   - `GEMINI_API_KEY`; optional `GEMINI_MODEL` (default `gemini-3.5-flash-lite`) and `GEMINI_THINKING_LEVEL` (default `medium`)
+   - `GEMINI_API_KEY`. Optional: `GEMINI_MODEL_TICK` (default `gemini-3.8-flash`), `GEMINI_MODEL_LIGHT` (default `gemini-3.5-flash-lite`; the old `GEMINI_MODEL` still works as its name), `GEMINI_THINKING_LEVEL` (default `medium`) and `GEMINI_THINKING_LEVEL_TICK`
+   - Optional quota guards, with headroom under the free tier: `GEMINI_TICK_RPD` (18) and `GEMINI_TICK_RPM` (4), `GEMINI_LIGHT_RPD` (450) and `GEMINI_LIGHT_RPM` (9)
    - `MCP_API_KEY`: the shared key for players (`Authorization: Bearer`, `x-api-key`, or `?key=` in the connector URL)
    - `CRON_SECRET`: for `/internal/resolve_tick`
    - `ADMIN_SECRET`: for `/internal/admin` (host commands). Use a different random value
@@ -103,4 +119,4 @@ pytest tests
 - **Adventure secrets are private only while the token is.** The adventures repository must stay private, and the `GITHUB_TOKEN` must be read-only and limited to it. A player who generates an adventure with their own Claude sees its secrets, by design.
 - **Cross-record writes are not one database transaction.** The server validates everything in memory and saves with optimistic version checks, so a rejected AI response changes nothing, but a crash in the middle of saving could leave records out of step.
 - **Vercel limits.** `maxDuration` is 60 seconds. A tick with many characters and a large thinking budget may need more (Pro plan).
-- **The AI Master is an LLM.** The server enforces structure, ownership of fields, dice, and the lethality guard, but the AI's judgement on secrecy and fairness is not machine-checked. A lite model on a long, rule-dense JSON task is unbenchmarked here, so `GEMINI_MODEL` can be changed without code changes.
+- **The AI Master is an LLM.** The server enforces structure, ownership of fields, dice, and the lethality guard, but the AI's judgement on secrecy and fairness is not machine-checked. A lite model on a long, rule-dense JSON task is unbenchmarked here, so the models can be changed with `GEMINI_MODEL_TICK` and `GEMINI_MODEL_LIGHT`. The model names `gemini-3.8-flash` and the `medium` thinking level on it were taken from your description and have not been tested against the live API.

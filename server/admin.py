@@ -19,6 +19,7 @@ COMMANDS = {
     "delete_adventure": "adventure_id [force]: removes a generated adventure; refused while games use it unless force is true",
     "delete_player": "player_id [force]: removes the player and their characters, and takes them out of games",
     "reset_player_key": "player_id: issues a new secret key (shown once) when a player lost theirs or it leaked",
+    "gm_usage": "no arguments: AI Master requests used today per model, and the limits",
     "purge_tasks": "no arguments: removes expired, finished and failed work packages",
 }
 
@@ -184,3 +185,8 @@ def _cmd_purge_tasks(engine, args):
             engine.store.delete("task", d["id"])
             n += 1
     return {"purged": n}
+
+
+def _cmd_gm_usage(engine, args):
+    from .gm import Usage
+    return {"usage": Usage(engine.store, engine.now_fn).today(), "note": "Counts are per provider day (Pacific time)."}

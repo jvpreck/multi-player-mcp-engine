@@ -12,8 +12,19 @@ ADVENTURES_CACHE_SECONDS = int(os.environ.get("ADVENTURES_CACHE_SECONDS", "300")
 ADVENTURES_DIR = Path(os.environ["ADVENTURES_DIR"]) if os.environ.get("ADVENTURES_DIR") else None
 RULESETS_DIR = ROOT / "rulesets"
 
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
+# Two tiers. "tick" is the strong, scarce model: closing a tick with every player's actions, and checking a character sheet.
+# "light" is the fast, plentiful model: everything a single player does between ticks. GEMINI_MODEL is the old name for the light model.
+GEMINI_MODEL_TICK = os.environ.get("GEMINI_MODEL_TICK", "gemini-3.8-flash")
+GEMINI_MODEL_LIGHT = os.environ.get("GEMINI_MODEL_LIGHT") or os.environ.get("GEMINI_MODEL") or "gemini-3.5-flash-lite"
 GEMINI_THINKING_LEVEL = os.environ.get("GEMINI_THINKING_LEVEL", "medium")
+GEMINI_THINKING_LEVEL_TICK = os.environ.get("GEMINI_THINKING_LEVEL_TICK", GEMINI_THINKING_LEVEL)
+# Free-tier quotas with a little headroom (the provider's figures were 20 per day and 5 per minute, 500 per day and 10 per minute).
+GEMINI_LIMITS = {
+    "tick": {"rpd": int(os.environ.get("GEMINI_TICK_RPD", "18")), "rpm": int(os.environ.get("GEMINI_TICK_RPM", "4"))},
+    "light": {"rpd": int(os.environ.get("GEMINI_LIGHT_RPD", "450")), "rpm": int(os.environ.get("GEMINI_LIGHT_RPM", "9"))},
+}
+GEMINI_QUOTA_TZ = "America/Los_Angeles"  # provider quotas reset at midnight Pacific
+LIGHT_MAX_WAIT_SECONDS = 8
 GM_MAX_ATTEMPTS = int(os.environ.get("GM_MAX_ATTEMPTS", "2"))
 
 TABLES = {
@@ -28,6 +39,7 @@ TABLES = {
     "submit_action": "gm_submit_actions",
     "task": "gm_tasks",
     "key": "gm_keys",
+    "usage": "gm_usage",
 }
 TASK_TTL_HOURS = 48
 TASK_MAX_ATTEMPTS = 5

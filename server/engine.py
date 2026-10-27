@@ -11,7 +11,7 @@ from . import apply as ap
 from . import config, files, prompt, redact, tasks
 from .db import Conflict, Workspace, state_key
 from .dice import make_dice
-from .gm import GMError, parse
+from .gm import GMBusy, GMError, parse
 
 PLAYER_KINDS = {"setup_answers", "character_submission", "character_confirm", "action", "standing_orders",
                 "thread_note", "message", "decision", "free_query", "pause", "resume", "say"}
@@ -159,6 +159,9 @@ class Engine:
         game = self._game(ws, game_id)
         adventure = self._adventure(ws, game["adventure_id"])
         system = prompt.system_prompt(game["ruleset_id"], adventure)
+        # the strong model closes ticks and checks character sheets; the light one handles single-player requests
+        tier = "tick" if mode == "resolve_tick" or (request or {}).get("kind") == "character_submission" else "light"
+        tick0 = (game.get("clock") or {}).get("tick")
         errors = None
         scale = 1
         tries = 0
@@ -166,7 +169,9 @@ class Engine:
         while tries < config.GM_MAX_ATTEMPTS:
             env = self._envelope(ws, game, adventure, mode, request, requester_cid, scale, errors)
             try:
-                resp = parse(self.gm.call(system, json.dumps(env, ensure_ascii=False)))
+                resp = parse(self.gm.call(system, json.dumps(env, ensure_ascii=False), tier=tier))
+            except GMBusy as e:
+                raise EngineError(str(e))
             except GMError as e:
                 errors, tries = [str(e)], tries + 1
                 continue
@@ -183,8 +188,22 @@ class Engine:
                 game = self._game(ws, game_id)
                 errors, tries = [f"Your previous response was rejected and nothing was applied: {e}"], tries + 1
                 continue
+            self._note_model(ws, game_id, mode, tick0)
             return resp
         raise EngineError(f"the GM response was rejected {tries} times: {errors}")
+
+    def _note_model(self, ws, game_id, mode, tick):
+        """Records which model closed a tick and whether it was the fallback, so the host can see it."""
+        last = getattr(self.gm, "last", None) or {}
+        if mode != "resolve_tick" or not last:
+            return
+        game = ws.get("game", game_id)
+        entry = next((t for t in game.get("ticks", []) if t["n"] == tick), None)
+        if entry is not None:
+            entry["gm_model"] = last.get("model")
+            if last.get("degraded"):
+                entry["gm_degraded"] = last["degraded"]
+            ws.touch("game", game_id)
 
     def _apply(self, ws, game_id, mode, resp, request, post, store_in_tick):
         game = ws.get("game", game_id)
