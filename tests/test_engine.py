@@ -11,6 +11,9 @@ from server.engine import Engine, EngineError
 ADV = "genius_loci_danvers_1925"
 
 
+CHECK = {"fail_next": 0, "payloads": []}
+
+
 class ScriptedGM:
     """Plays the AI Master by returning prepared JSON. `rules` is a function(envelope) -> dict."""
     def __init__(self, rule):
@@ -51,11 +54,20 @@ def standard_gm(env, n):
     if kind in ("game_created", "join"):
         r["results"][pid] = [item("Setup questions", kind="system")]
     elif kind == "character_submission":
-        r["state_changes"].append({"op": "merge", "entity": "character", "id": cid, "patch": {
-            "name": "Eleanor Vance" if len([c for c in env["characters"]]) == 1 else "Marcus Hale", "status": "validated",
-            "location": {"id": "loc_tolland_house", "detail": ""},
-            "sheet": {"groups": {"general": {"Health": {"max": 8, "cur": 8}}}, "derived": {}, "unrated": []}}})
-        r["results"][cid] = [item("Sheet validated", kind="system")]
+        me = next(c for c in env["characters"] if c["id"] == cid)
+        patch = {"status": "validated", "location": {"id": "loc_tolland_house", "detail": ""}}
+        if not me.get("name"):
+            patch["name"] = "Eleanor Vance" if len(env["characters"]) == 1 else "Marcus Hale"
+            patch["sheet"] = {"groups": {"general": {"Health": {"max": 8, "cur": 8}}}, "derived": {}, "unrated": []}
+        if CHECK["fail_next"] > 0:
+            CHECK["fail_next"] -= 1
+            patch["status"] = "draft"
+            r["validation"] = {"character_id": cid, "result": "fail", "checks": [{"n": 3, "name": "Budget", "result": "fail", "note": "Total is 24, budget is 22."}]}
+        else:
+            r["validation"] = {"character_id": cid, "result": "pass", "checks": []}
+        r["state_changes"].append({"op": "merge", "entity": "character", "id": cid, "patch": patch})
+        r["results"][cid] = [item("Sheet checked", kind="system")]
+        CHECK["payloads"].append(req["payload"])
     elif kind == "character_confirm":
         r["state_changes"] += [
             {"op": "merge", "entity": "character", "id": cid, "patch": {"status": "active"}},
@@ -93,8 +105,38 @@ def standard_gm(env, n):
     return r
 
 
+def game_pkg(**kw):
+    d = {"title": "Run", "language": "en", "display_name": "Jorge", "lethality": "moderate", "pace": "slow",
+         "tick_interval_hours": 24, "tick_span": "day", "pvp": "soft"}
+    d.update(kw)
+    return d
+
+
+def new_game(eng, player, adv=ADV, language=None, settings=None):
+    """create_game starts a work package; the client answers it with submit_package."""
+    out = eng.create_game(player, adv, language=language, settings=settings)
+    pkg = out["package"]
+    s = settings or {}
+    return eng.submit_package(player, pkg["task_id"], game_pkg(**{k: v for k, v in s.items() if k in ("lethality", "pvp", "pace", "tick_span", "tick_interval_hours")}))
+
+
+def char_pkg(name="Iris Calder", concept="a reporter", **kw):
+    d = {"route": "generate", "name": name, "concept": concept, "personal_goal": "find Tom",
+         "sheet": {"groups": {"action": {"Health": {"max": 8, "cur": 8}}}, "derived": {}, "unrated": []},
+         "known_background": ["Tom is my friend."], "language": "en"}
+    d.update(kw)
+    return d
+
+
+def new_char(eng, player, gid, concept="a reporter", replaces=None):
+    pkg = eng.generate_character(player, gid, "generate", concept=concept, replaces_character_id=replaces)["package"]
+    return eng.submit_package(player, pkg["task_id"], char_pkg(concept=concept))
+
+
 @pytest.fixture
 def world():
+    CHECK["fail_next"] = 0
+    CHECK["payloads"] = []
     store = MemoryStore()
     gm = ScriptedGM(standard_gm)
     clock = {"t": datetime(2026, 11, 1, 9, 0, tzinfo=timezone.utc)}
@@ -103,7 +145,7 @@ def world():
 
 
 def start_solo(eng, player="p_jorge"):
-    out = eng.create_game(player, ADV, language="en")
+    out = new_game(eng, player, ADV, language="en")
     gid = out["game_id"]
     ch = eng.generate_character(player, gid, "pregen", pregen_id="pregen_eleanor_vance")
     cid = ch["deliveries"][0]["character_id"]
@@ -142,7 +184,7 @@ def test_every_markdown_cross_reference_resolves():
 # ---------------------------------------------------------------- game flow
 def test_setup_and_start_solo(world):
     eng, store, gm, clock = world
-    out = eng.create_game("p_jorge", ADV, language="en")
+    out = new_game(eng, "p_jorge", ADV, language="en")
     assert out["setup"] and out["setup"][0]["items"][0]["facts"][0]["text"] == "Setup questions"
     gid = out["game_id"]
     game, _ = store.get("game", gid)
@@ -203,11 +245,11 @@ def test_resolve_tick_is_idempotent(world):
 
 def test_party_witness_say_and_privacy(world):
     eng, store, gm, clock = world
-    out = eng.create_game("p_jorge", ADV)
+    out = new_game(eng, "p_jorge", ADV)
     gid = out["game_id"]
     eng.join_game("p_ana", gid)
     a = eng.generate_character("p_jorge", gid, "pregen", pregen_id="x")["deliveries"][0]["character_id"]
-    b = eng.generate_character("p_ana", gid, "generate", concept="a doctor")["deliveries"][0]["character_id"]
+    b = new_char(eng, "p_ana", gid, "a doctor")["deliveries"][0]["character_id"]
     eng.submit_action("p_jorge", gid, "character_confirm", "", a, {"approved": True})
     eng.submit_action("p_ana", gid, "character_confirm", "", b, {"approved": True})
     game, _ = store.get("game", gid)
@@ -300,22 +342,22 @@ def test_death_lethality_and_replacement(world):
     assert p["characters"][0]["is_alive"] is False
     with pytest.raises(EngineError):
         eng.submit_action("p_jorge", gid, "action", "search", cid)  # dead characters cannot act
-    r = eng.generate_character("p_jorge", gid, "generate", concept="a nurse", replaces_character_id=cid)
+    r = new_char(eng, "p_jorge", gid, "a nurse", cid)
     new = r["deliveries"][0]["character_id"]
     assert new != cid
     c, _ = store.get("character", cid)
     n, _ = store.get("character", new)
-    assert c["replaced_by_character_id"] == new and n["replaces_character_id"] == cid and n["knowledge"]["facts"] == []
+    assert c["replaced_by_character_id"] == new and n["replaces_character_id"] == cid and all(f["source"].startswith("background") for f in n["knowledge"]["facts"])
     game, _ = store.get("game", gid)
     assert game["roster"][0]["character_id"] == new and game["roster_history"][0]["character_id"] == cid
     # a live character cannot be replaced
     with pytest.raises(EngineError):
-        eng.generate_character("p_jorge", gid, "generate", concept="x", replaces_character_id=new)
+        new_char(eng, "p_jorge", gid, "x", new)
 
 
 def test_low_lethality_blocks_unchosen_death(world):
     eng, store, gm, clock = world
-    out = eng.create_game("p_jorge", ADV, settings={"lethality": "low"})
+    out = new_game(eng, "p_jorge", ADV, settings={"lethality": "low"})
     gid = out["game_id"]
     cid = eng.generate_character("p_jorge", gid, "pregen")["deliveries"][0]["character_id"]
     eng.submit_action("p_jorge", gid, "character_confirm", "", cid, {})
@@ -337,11 +379,11 @@ def test_low_lethality_blocks_unchosen_death(world):
 
 def test_tick_due_and_resolve_due(world):
     eng, store, gm, clock = world
-    out = eng.create_game("p_jorge", ADV)
+    out = new_game(eng, "p_jorge", ADV)
     gid = out["game_id"]
     eng.join_game("p_ana", gid)
     a = eng.generate_character("p_jorge", gid, "pregen")["deliveries"][0]["character_id"]
-    b = eng.generate_character("p_ana", gid, "generate", concept="d")["deliveries"][0]["character_id"]
+    b = new_char(eng, "p_ana", gid, "d")["deliveries"][0]["character_id"]
     eng.submit_action("p_jorge", gid, "character_confirm", "", a, {})
     eng.submit_action("p_ana", gid, "character_confirm", "", b, {})
     assert eng.resolve_due()["checked"] == 0
@@ -365,44 +407,174 @@ def test_get_character_and_story_summary(world):
     assert "gm_only" not in json.dumps(v) and "inbox" not in json.dumps(v)
 
 
-def test_generate_adventure(world):
-    eng, store, gm, clock = world
+def adventure_pkg(**kw):
+    body = "A long player-safe premise. " * 30
+    secret = "The GM only plan. " * 40
+    content = (f"# PART A: PLAYER-SAFE\n{body}\n\n# PART B: GM ONLY\n## The truth\n{secret}\n## Cast\nNPCs.\n## Places\nPlaces.\n"
+               f"## Timeline and clock\nDays.\n## Clue matrix\nClues.\n## Finale\nFinale.\n## Endings\nEndings.\n\n# PART C: IDS\n{secret}")
+    d = {"title": "The Quiet Mill", "generation": "full", "era": "1930", "place": "New England", "players": {"min": 1, "max": 3},
+         "recommended": {"tick_span": "day", "tick_interval_hours": 24, "lethality": "high"}, "pace_options": ["slow"], "language": "en",
+         "summary": "A mill.", "content": content,
+         "npcs": [{"id": "npc_miller", "name": "Miller", "role": "owner"}], "locations": [{"id": "loc_mill", "name": "The mill"}]}
+    d.update(kw)
+    return d
 
-    def rule(env, n):
-        r = base()
-        assert env["mode"] == "generate_adventure"
-        r["handling"] = "generated"
-        r["adventure"] = {"title": "The Quiet Mill", "content": "# Part A\nplayer-safe\n# Part B\nGM only", "generation": "full",
-                          "era": "1925", "players": {"min": 1, "max": 3}, "summary": "A mill.", "recommended": {"lethality": "high"}}
-        r["state_changes"] = [{"op": "upsert", "entity": "npc", "id": "npc_miller", "doc": {"name": "Miller", "role": "owner"}}]
-        r["results"]["p_jorge"] = [item("Adventure ready", kind="system")]
-        return r
-    eng.gm.rule = rule
+
+def test_adventure_package_flow(world):
+    eng, store, gm, clock = world
+    calls = len(gm.calls)
     out = eng.generate_adventure("p_jorge", "fear_itself", seed_text="a haunted mill", generation="full")
-    aid = out["adventure"]["id"]
+    pkg = out["package"]
+    assert len(gm.calls) == calls                     # the creative work is not done by the AI Master
+    assert pkg["task"] == "generate_adventure" and "Generate the truth first" in pkg["instructions"]
+    ctx = pkg["context"]
+    assert ctx["ruleset_text"] and ctx["oracles_text"] and len(ctx["dice"]["d6"]) == 60 and ctx["seed_text"] == "a haunted mill"
+    assert pkg["submission"]["tool"] == "submit_package" and "content" in pkg["submission"]["schema"]
+    bad = eng.submit_package("p_jorge", pkg["task_id"], adventure_pkg(content="# PART A\nshort", players={"min": 3, "max": 1}))
+    assert bad["accepted"] is False and bad["attempts_left"] == 4 and len(bad["problems"]) >= 2
+    bad = eng.submit_package("p_jorge", pkg["task_id"], adventure_pkg(npcs=[{"id": "Miller", "name": "x"}]))
+    assert bad["accepted"] is False and any("npc" in x for x in bad["problems"])
+    ok = eng.submit_package("p_jorge", pkg["task_id"], adventure_pkg())
+    assert ok["accepted"] is True
+    aid = ok["adventure"]["id"]
+    assert "content" not in ok["adventure"] and "GM only plan" not in json.dumps(ok)
     adv, _ = store.get("adventure", aid)
-    assert adv["source"] == "generated" and adv["owner_player_id"] == "p_jorge" and "GM only" in adv["content"]
-    assert "content" not in out["adventure"]
+    assert adv["source"] == "generated" and adv["owner_player_id"] == "p_jorge" and "GM only plan" in adv["content"]
+    assert store.get("npc", f"{aid}:npc_miller")[0]["scope"]["adventure_id"] == aid
     assert any(a["id"] == aid for a in eng.list_adventures("p_jorge")["adventures"])
     assert not any(a["id"] == aid for a in eng.list_adventures("p_other")["adventures"])
-    npc, _ = store.get("npc", f"{aid}:npc_miller")
-    assert npc["scope"]["adventure_id"] == aid
-    # a game from the generated adventure uses its content in the prompt
-    eng.gm.rule = standard_gm
-    g = eng.create_game("p_jorge", aid)
-    assert "GM only" in eng.gm.calls[-1][0]
-    # unknown ruleset is refused
+    assert "GM only plan" not in json.dumps(eng.list_adventures("p_jorge"))
+    with pytest.raises(EngineError):                 # a finished task cannot be reused
+        eng.submit_package("p_jorge", pkg["task_id"], adventure_pkg())
+    new_game(eng, "p_jorge", aid)
+    system = eng.gm.calls[-1][0]
+    assert "GM only plan" in system and "written by a player's client" in system
+    gp = eng.create_game("p_jorge", aid)["package"]
+    assert "GM only plan" not in json.dumps(gp)
+
+
+def test_emergent_adventure_needs_a_seed(world):
+    eng, store, gm, clock = world
+    pkg = eng.generate_adventure("p_jorge", "fear_itself", seed_text="x", generation="emergent")["package"]
+    r = eng.submit_package("p_jorge", pkg["task_id"], adventure_pkg(generation="emergent"))
+    assert r["accepted"] is False and any("seed" in x for x in r["problems"])
+    seed = {"truth": "t", "hook": "h", "stake": "s", "antagonist": "a", "clock_ticks": 5,
+            "anchor_npcs": ["a", "b", "c", "d"], "first_place": "p", "opening_handout": "o"}
+    assert eng.submit_package("p_jorge", pkg["task_id"], adventure_pkg(generation="emergent", seed=seed))["accepted"] is True
+
+
+def test_unknown_ruleset_and_missing_seed_refused(world):
+    eng, *_ = world
     with pytest.raises(EngineError):
         eng.generate_adventure("p_jorge", "nope", seed_text="x")
+    with pytest.raises(EngineError):
+        eng.generate_adventure("p_jorge", "fear_itself")
+
+
+def test_game_package_flow(world):
+    eng, store, gm, clock = world
+    out = eng.create_game("p_jorge", ADV, language="es", settings={"lethality": "high"})
+    pkg = out["package"]
+    assert pkg["task"] == "create_game" and pkg["context"]["defaults"]["lethality"] == "high" and pkg["context"]["defaults"]["language"] == "es"
+    assert pkg["context"]["adventure"]["title"] and "player_safe_text" not in pkg["context"]["adventure"]
+    assert "PART B" not in json.dumps(pkg)
+    bad = eng.submit_package("p_jorge", pkg["task_id"], game_pkg(lethality="deadly", pace="warp", tick_interval_hours=0))
+    assert bad["accepted"] is False and len(bad["problems"]) == 3
+    ok = eng.submit_package("p_jorge", pkg["task_id"], game_pkg(lethality="low", title="My run", pvp="none"))
+    assert ok["accepted"] is True and ok["game_id"] and ok["setup"]
+    game, _ = store.get("game", ok["game_id"])
+    assert game["settings"]["lethality"] == "low" and game["settings"]["pvp"] == "none" and game["title"] == "My run"
+    assert game["roster"][0]["player_id"] == "p_jorge"
+
+
+def test_character_package_flow_and_injection_is_dropped(world):
+    eng, store, gm, clock = world
+    gid = new_game(eng, "p_jorge", ADV)["game_id"]
+    pkg = eng.generate_character("p_jorge", gid, "generate", concept="a reporter")["package"]
+    ctx = pkg["context"]
+    assert pkg["task"] == "generate_character" and "validation checklist" in pkg["instructions"].lower()
+    assert "GUMSHOE" in ctx["ruleset_text"] and ctx["game"]["expected_party_size"] == 1
+    safe = ctx["adventure"]["player_safe_text"]
+    assert safe and "# PART B" not in safe and "# PART C" not in safe and "The truth (what is really going on)" not in safe
+    calls = len(gm.calls)
+    evil = char_pkg(gm_only={"drift": 99}, status="active", is_alive=False, inbox=[{"x": 1}], client_sync={"version": 99},
+                    settings={"safety": {"lines": ["gore"]}, "standing_orders": {"hold": "stay", "evil": "x"}},
+                    inventory=[{"item": "press card", "qty": 1}], relationships=[{"with_id": "npc_sam", "attitude": "ally", "trust": 9}])
+    r = eng.submit_package("p_jorge", pkg["task_id"], evil)
+    assert r["accepted"] is True and len(gm.calls) == calls + 1       # one cross-check by the AI Master
+    cid = r["character_id"]
+    c, _ = store.get("character", cid)
+    assert c["gm_only"] == {} and c["is_alive"] is True and c["status"] == "validated" and c["client_sync"]["version"] < 99
+    assert all("x" not in i for i in c["inbox"])
+    assert c["name"] == "Iris Calder" and c["sheet"]["groups"]["action"]["Health"]["cur"] == 8
+    assert c["inventory"][0]["item"] == "press card" and c["relationships"][0]["trust"] == 3
+    assert c["settings"]["safety"]["lines"] == ["gore"] and "evil" not in c["settings"]["standing_orders"]
+    assert c["knowledge"]["facts"][0]["confidence"] == "hearsay"
+    assert CHECK["payloads"][-1]["generated_locally"] is True and CHECK["payloads"][-1]["route"] == "provided"
+    eng.submit_action("p_jorge", gid, "character_confirm", "", cid, {"approved": True})
+    assert store.get("game", gid)[0]["phase"] == "active"
+
+
+def test_character_package_rejections_and_gm_failure_retry(world):
+    eng, store, gm, clock = world
+    gid = new_game(eng, "p_jorge", ADV)["game_id"]
+    pkg = eng.generate_character("p_jorge", gid, "generate", concept="x")["package"]
+    tid = pkg["task_id"]
+    bad = eng.submit_package("p_jorge", tid, char_pkg(name="", sheet={"groups": {"action": {"Health": {"max": 8, "cur": 5}}}}))
+    assert bad["accepted"] is False and len(bad["problems"]) == 2 and bad["attempts_left"] == 4
+    CHECK["fail_next"] = 1
+    r = eng.submit_package("p_jorge", tid, char_pkg())
+    assert r["accepted"] is False and any("Budget" in p for p in r["problems"]) and r["attempts_left"] == 3
+    r = eng.submit_package("p_jorge", tid, char_pkg(concept="fixed"))
+    assert r["accepted"] is True
+    chars = [c for c, _ in store.find("character", game_id=gid)]
+    assert len(chars) == 1                                   # the failed attempt's draft was reused, not duplicated
+    with pytest.raises(EngineError):
+        eng.submit_package("p_ana", tid, char_pkg())
+    with pytest.raises(EngineError):
+        eng.submit_package("p_jorge", "t_nope", char_pkg())
+
+
+def test_task_expiry_and_attempt_limit(world):
+    eng, store, gm, clock = world
+    pkg = eng.generate_adventure("p_jorge", "fear_itself", seed_text="x", generation="full")["package"]
+    clock["t"] += timedelta(hours=49)
+    with pytest.raises(EngineError):
+        eng.submit_package("p_jorge", pkg["task_id"], adventure_pkg())
+    pkg = eng.generate_adventure("p_jorge", "fear_itself", seed_text="x", generation="full")["package"]
+    for _ in range(5):
+        assert eng.submit_package("p_jorge", pkg["task_id"], {})["accepted"] is False
+    with pytest.raises(EngineError):
+        eng.submit_package("p_jorge", pkg["task_id"], adventure_pkg())
+
+
+def test_replacement_by_package_after_death(world):
+    eng, store, gm, clock = world
+    gid, cid = start_solo(eng)
+    eng.submit_action("p_jorge", gid, "decision", "", cid, {"choice": "walk"})
+    pkg = eng.generate_character("p_jorge", gid, "generate", concept="a nurse", replaces_character_id=cid)["package"]
+    assert pkg["context"]["replaces"]["character_id"] == cid and pkg["context"]["replaces"]["how_it_ended"] == "You fell."
+    CHECK["fail_next"] = 1
+    r = eng.submit_package("p_jorge", pkg["task_id"], char_pkg(concept="a nurse"))
+    assert r["accepted"] is False
+    r = eng.submit_package("p_jorge", pkg["task_id"], char_pkg(concept="a nurse"))
+    assert r["accepted"] is True
+    game, _ = store.get("game", gid)
+    assert len(game["roster_history"]) == 1 and game["roster"][0]["character_id"] == r["character_id"]
+    n, _ = store.get("character", r["character_id"])
+    assert n["replaces_character_id"] == cid and n["knowledge"]["facts"][0]["text"] == "Tom is my friend."
+    assert store.get("character", cid)[0]["replaced_by_character_id"] == r["character_id"]
+    with pytest.raises(EngineError):
+        eng.generate_character("p_jorge", gid, "generate", concept="x", replaces_character_id=r["character_id"])
 
 
 def test_envelope_hides_other_characters_knowledge_in_intake(world):
     eng, store, gm, clock = world
-    out = eng.create_game("p_jorge", ADV)
+    out = new_game(eng, "p_jorge", ADV)
     gid = out["game_id"]
     eng.join_game("p_ana", gid)
     a = eng.generate_character("p_jorge", gid, "pregen")["deliveries"][0]["character_id"]
-    b = eng.generate_character("p_ana", gid, "generate", concept="d")["deliveries"][0]["character_id"]
+    b = new_char(eng, "p_ana", gid, "d")["deliveries"][0]["character_id"]
     eng.submit_action("p_jorge", gid, "character_confirm", "", a, {})
     eng.submit_action("p_ana", gid, "character_confirm", "", b, {})
     eng.submit_action("p_jorge", gid, "free_query", "?", a)

@@ -21,7 +21,10 @@ TABLES = {
     "npc_state": "gm_npc_states",
     "location_state": "gm_location_states",
     "submit_action": "gm_submit_actions",
+    "task": "gm_tasks",
 }
+TASK_TTL_HOURS = 48
+TASK_MAX_ATTEMPTS = 5
 
 BLOCKS = ["Morning", "Afternoon", "Evening", "Night"]
 SPAN_BLOCKS = {"day": 4, "block": 1, "beat": 1}

@@ -30,7 +30,7 @@ An asynchronous, multi-player (or solo) tabletop RPG run by an AI Master.
 
 | Path | Contents |
 |---|---|
-| `gm/` | AI Master files, independent of any ruleset or adventure: `protocol.md`, `oracles.md`, `state_and_messages.md`; and `player_client_brief.md` for the player's Claude (served as MCP instructions) |
+| `gm/` | AI Master files, independent of any ruleset or adventure: `protocol.md`, `oracles.md`, `state_and_messages.md`; `client_tasks.md` (step-by-step instructions for the work packages, sent to the player's Claude); and `player_client_brief.md` for the player's Claude (served as MCP instructions) |
 | `rulesets/` | One markdown file per ruleset, with YAML front matter (`id`, `title`, ...). Currently `fear_itself.md` |
 | `adventures/` | One markdown file per adventure, with front matter (`id`, `ruleset`, `players`, `recommended`, ...). Currently `genius_loci_danvers_1925.md` |
 | `server/` | The Python server: `app.py` (gateway and MCP), `tools.py`, `engine.py`, `apply.py`, `db.py`, `prompt.py`, `gm.py`, `redact.py`, `dice.py`, `files.py`, `config.py` |
@@ -45,13 +45,16 @@ To add a ruleset or an adventure, drop a markdown file with front matter into `r
 | Tool | Purpose |
 |---|---|
 | `list_adventures` | Adventures (files and the player's generated ones) and rulesets |
-| `generate_adventure` | New adventure from a seed or from a document |
-| `create_game` | New game run from an adventure (lethality, tick settings) |
+| `generate_adventure` | Returns a **work package** to write a new adventure locally (from a seed or a document) |
+| `create_game` | Returns a work package to choose the game settings (lethality, tick, party size) locally |
 | `join_game` | Join a game by id |
-| `generate_character` | Generate, pick a pregenerated, provide or (as a replacement) convert an NPC |
+| `generate_character` | `generate` and `provided` return a work package to build or check the sheet locally; `pregen` and `from_npc` are handled on the server |
+| `submit_package` | Sends back the finished package (`task_id` and the result). The server validates and stores it, or returns the problems to fix |
 | `submit_action` | Actions, speech, setup answers, character confirmation, standing orders, decisions, messages, free queries, pause |
 | `get_results` | Collect results not yet delivered |
 | `get_character`, `get_rules`, `save_story_summary` | Resync, read the ruleset, store the client's story summary |
+
+**Work packages.** For creative work, the server sends the client a structured package: step-by-step instructions, the ruleset and context needed, the exact schema of the result, and the instruction to return it with `submit_package`. The client does the work locally. The server checks structure and limits, stores the result and, for characters, has the AI Master cross-check the sheet against the rules. A package expires after 48 hours and allows 5 attempts. A client-written adventure is stored as data and fenced in the AI Master's prompt, so it cannot change the protocol. Only join games from hosts you trust.
 
 `resolve_tick` is **not** a player tool. It is an HTTP endpoint for the server side: `GET|POST /internal/resolve_tick` (optional `?game_id=`), protected by `Authorization: Bearer $CRON_SECRET`. Without `game_id` it resolves every game whose tick is due. Call it from a scheduler (Vercel Cron, a GitHub Action, or any cron).
 

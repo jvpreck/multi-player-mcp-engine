@@ -92,6 +92,8 @@ def index_for(kind, doc):
         return {"adventure_id": sc.get("adventure_id"), "game_id": sc.get("game_id")}
     if kind == "adventure":
         return {"owner_player_id": doc.get("owner_player_id")}
+    if kind == "task":
+        return {"player_id": doc["player_id"], "status": doc.get("status")}
     return {}
 
 

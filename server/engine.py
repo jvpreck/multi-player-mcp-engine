@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from . import apply as ap
-from . import config, files, prompt, redact
+from . import config, files, prompt, redact, tasks
 from .db import Conflict, Workspace, state_key
 from .dice import make_dice
 from .gm import GMError, parse
@@ -14,7 +14,7 @@ from .gm import GMError, parse
 PLAYER_KINDS = {"setup_answers", "character_submission", "character_confirm", "action", "standing_orders",
                 "thread_note", "message", "decision", "free_query", "pause", "resume", "say"}
 NEEDS_CHARACTER = {"action", "standing_orders", "thread_note", "message", "character_confirm", "say", "pause", "resume"}
-HANDLINGS = {"answered", "queued", "autonomous", "clarify", "rejected", "resolved_tick", "generated"}
+HANDLINGS = {"answered", "queued", "autonomous", "clarify", "rejected", "resolved_tick"}
 
 NARRATION_BRIEF = (
     "You are the narrator for one player in an asynchronous game. The facts below are ground truth. "
@@ -327,51 +327,25 @@ class Engine:
     def get_rules(self, ruleset_id):
         return {"ruleset_id": ruleset_id, "text": prompt.ruleset_text(ruleset_id)}
 
-    # ---- generate_adventure
+    # ---- generate_adventure (a work package for the client)
     def generate_adventure(self, player_id, ruleset_id, seed_text="", document_text="", generation="emergent", language="en"):
         if ruleset_id not in files.rulesets():
             raise EngineError(f"unknown ruleset {ruleset_id}")
         if not (seed_text or document_text):
             raise EngineError("give a seed or a document")
-        ws = self._ws()
-        self._player(ws, player_id, language=None)
-        system = prompt.system_prompt(ruleset_id, None)
-        request = {"player_id": player_id, "ruleset_id": ruleset_id, "seed_text": seed_text or None,
-                   "document_text": document_text or None, "generation": generation, "language": language, "options": {}}
-        errors = None
-        for _ in range(config.GM_MAX_ATTEMPTS):
-            env = {"mode": "generate_adventure", "now": iso(self.now()), "request": request,
-                   "players": [{"id": player_id}], "available_rulesets": [{"id": ruleset_id}],
-                   "dice": make_dice(60, 30, 30)}
-            if errors:
-                env["previous_errors"] = errors
-            try:
-                resp = parse(self.gm.call(system, json.dumps(env, ensure_ascii=False)))
-            except GMError as e:
-                errors = [str(e)]
-                continue
-            adv = resp.get("adventure")
-            if resp.get("status") != "ok" or not isinstance(adv, dict) or not (adv.get("content") or adv.get("seed")):
-                errors = ["the response must include an adventure object with content or seed"]
-                continue
-            adv_id = short("adv_gen")
-            adv.update({"id": adv_id, "source": "generated", "file": None, "ruleset_id": ruleset_id,
-                        "owner_player_id": player_id, "created_at": iso(self.now())})
-            adv.setdefault("title", "Untitled adventure")
-            adv.setdefault("generation", generation)
-            ws.put("adventure", adv_id, adv)
-            for op in resp.get("state_changes", []):
-                if op.get("op") == "upsert" and op.get("entity") in ("npc", "location") and op.get("id"):
-                    doc = dict(op["doc"]); doc["id"] = op["id"]; doc["scope"] = {"adventure_id": adv_id, "game_id": None}
-                    ws.put(op["entity"], f"{adv_id}:{op['id']}", doc)
-            ws.commit()
-            summary = {k: adv.get(k) for k in ("id", "title", "era", "players", "recommended", "summary", "generation")}
-            res = resp.get("results", {}).get(player_id) or []
-            return {"adventure": summary, "results": res if isinstance(res, list) else [res]}
-        raise EngineError(f"the GM could not generate the adventure: {errors}")
+        if generation not in ("full", "emergent"):
+            raise EngineError("generation must be full or emergent")
+        return self.start_task(player_id, "generate_adventure", {
+            "ruleset_id": ruleset_id, "seed_text": seed_text, "document_text": document_text,
+            "generation": generation, "language": language})
 
     # ---- create_game
     def create_game(self, player_id, adventure_id, title=None, language=None, settings=None, display_name=None):
+        """Starts the work package that collects the game settings in the client."""
+        return self.start_task(player_id, "create_game", {"adventure_id": adventure_id, "title": title, "language": language,
+                                                          "settings": settings or {}, "display_name": display_name})
+
+    def _create_game(self, player_id, adventure_id, title=None, language=None, settings=None, display_name=None):
         ws = self._ws()
         p = self._player(ws, player_id, display_name, language)
         adv = self._adventure(ws, adventure_id)
@@ -436,10 +410,13 @@ class Engine:
                 raise EngineError("you can only replace your own character in this game")
             if old.get("is_alive", True) and old.get("status") not in ("gone", "committed"):
                 raise EngineError("that character is still in play")
+            cur = ws.get("character", roster.get("character_id")) if roster.get("character_id") else None
+            if cur and cur.get("replaces_character_id") == replaces and cur.get("status") in ("draft", "validated"):
+                return cur
         elif roster.get("character_id"):
             cur = ws.get("character", roster["character_id"])
             if cur and cur.get("is_alive", True) and cur.get("status") not in ("gone", "committed", "dead"):
-                if cur.get("status") not in ("draft",):
+                if cur.get("status") not in ("draft", "validated"):
                     raise EngineError("this player already has a character in this game; replace it only after it dies or is out of play")
                 return cur
         if route == "from_npc":
@@ -468,7 +445,203 @@ class Engine:
                            sheet_json=None, npc_id=None, replaces_character_id=None, changes=""):
         payload = {"route": route, "concept": concept, "pregen_id": pregen_id, "sheet_text": sheet_text,
                    "sheet_json": sheet_json, "npc_id": npc_id, "replaces_character_id": replaces_character_id, "changes": changes}
+        if route in ("generate", "provided"):
+            # the client builds the character locally from a work package
+            return self.start_task(player_id, "generate_character", {
+                "game_id": game_id, "route": route, "concept": concept, "sheet_text": sheet_text or (json.dumps(sheet_json) if sheet_json else ""),
+                "replaces_character_id": replaces_character_id})
         return self.submit_action(player_id, game_id, "character_submission", text=concept or sheet_text, payload=payload)
+
+    # ---- work packages
+    def start_task(self, player_id, kind, params):
+        ws = self._ws()
+        self._player(ws, player_id)
+        expires = iso(self.now() + timedelta(hours=config.TASK_TTL_HOURS))
+        tid = short("t")
+        if kind == "generate_adventure":
+            ctx = tasks.adventure_context(params["ruleset_id"], params["seed_text"], params["document_text"], params["generation"], params["language"])
+        elif kind == "create_game":
+            adv = self._adventure(ws, params["adventure_id"])
+            if adv.get("ruleset_id") not in files.rulesets():
+                raise EngineError(f"the adventure needs ruleset {adv.get('ruleset_id')}, which this server does not have")
+            rec = adv.get("recommended") or {}
+            defaults = {"title": params.get("title") or adv.get("title"), "language": params.get("language") or "en",
+                        "lethality": (params.get("settings") or {}).get("lethality") or rec.get("lethality", "moderate"),
+                        "tick_interval_hours": (params.get("settings") or {}).get("tick_interval_hours") or rec.get("tick_interval_hours", 24),
+                        "tick_span": (params.get("settings") or {}).get("tick_span") or rec.get("tick_span", "day"),
+                        "pvp": (params.get("settings") or {}).get("pvp") or "soft", "pace": "slow"}
+            ctx = tasks.game_context(adv, defaults)
+        elif kind == "generate_character":
+            game = self._game(ws, params["game_id"])
+            if not any(r["player_id"] == player_id for r in game["roster"]):
+                raise EngineError("join the game first")
+            adv = self._adventure(ws, game["adventure_id"])
+            replaces = None
+            if params.get("replaces_character_id"):
+                old = ws.get("character", params["replaces_character_id"])
+                if not old or old["player_id"] != player_id or old["game_id"] != game["id"]:
+                    raise EngineError("you can only replace your own character in this game")
+                if old.get("is_alive", True) and old.get("status") not in ("gone", "committed"):
+                    raise EngineError("that character is still in play")
+                replaces = {"character_id": old["id"], "name": old.get("name"), "status": old.get("status"),
+                            "how_it_ended": (old.get("death") or {}).get("summary")}
+            others = [c.get("name") for c in ws.load_game_characters(game["id"]) if c["player_id"] != player_id and c.get("name")]
+            ctx = tasks.character_context(game, adv, params["route"], params.get("sheet_text"), replaces, others,
+                                          adv.get("pregenerated", []))
+        else:
+            raise EngineError(f"unknown task {kind}")
+        rec_ = {"id": tid, "player_id": player_id, "kind": kind, "status": "open", "params": params, "attempts": 0,
+                "created_at": iso(self.now()), "expires_at": expires, "result": None}
+        ws.put("task", tid, rec_)
+        ws.commit()
+        return {"package": tasks.build_package(kind, tid, expires, ctx)}
+
+    def submit_package(self, player_id, task_id, package):
+        ws = self._ws()
+        t = ws.get("task", task_id)
+        if t is None or t["player_id"] != player_id:
+            raise EngineError("unknown task")
+        if t["status"] != "open":
+            raise EngineError(f"this task is {t['status']}; start a new one")
+        if self.now() > datetime.fromisoformat(t["expires_at"].replace("Z", "+00:00")):
+            t["status"] = "expired"
+            ws.touch("task", task_id)
+            ws.commit()
+            raise EngineError("this task has expired; start a new one")
+        t["attempts"] += 1
+        if t["attempts"] > config.TASK_MAX_ATTEMPTS:
+            t["status"] = "failed"
+            ws.touch("task", task_id)
+            ws.commit()
+            raise EngineError("too many attempts; start a new task")
+        kind, params = t["kind"], t["params"]
+        left = config.TASK_MAX_ATTEMPTS - t["attempts"]
+
+        def reject(problems):
+            ws2 = self._ws()
+            t2 = ws2.get("task", task_id)
+            t2["attempts"] = t["attempts"]
+            ws2.touch("task", task_id)
+            ws2.commit()
+            return {"accepted": False, "problems": problems, "attempts_left": left, "task_id": task_id}
+
+        def done(result):
+            ws2 = self._ws()
+            t2 = ws2.get("task", task_id)
+            t2["status"], t2["result"], t2["attempts"] = "done", result, t["attempts"]
+            ws2.touch("task", task_id)
+            ws2.commit()
+
+        if kind == "generate_adventure":
+            problems = tasks.validate_adventure(package, set(files.rulesets()))
+            if problems:
+                return reject(problems)
+            out = self._store_adventure(player_id, params["ruleset_id"], package)
+            done({"adventure_id": out["adventure"]["id"]})
+            return {"accepted": True, "task_id": task_id, **out}
+        if kind == "create_game":
+            adv = self._adventure(ws, params["adventure_id"])
+            problems = tasks.validate_game(package, adv)
+            if problems:
+                return reject(problems)
+            s = {k: package[k] for k in ("lethality", "tick_span", "tick_interval_hours", "pvp", "pace") if package.get(k)}
+            out = self._create_game(player_id, params["adventure_id"], package.get("title") or params.get("title"),
+                                    package.get("language") or params.get("language"), s, package.get("display_name") or params.get("display_name"))
+            done({"game_id": out["game_id"]})
+            return {"accepted": True, "task_id": task_id, **out}
+        # generate_character
+        problems = tasks.validate_character(package)
+        if problems:
+            return reject(problems)
+        return self._submit_character_package(player_id, task_id, t, package, reject, done)
+
+    def _store_adventure(self, player_id, ruleset_id, p):
+        ws = self._ws()
+        aid = short("adv_gen")
+        adv = {"id": aid, "title": p["title"], "source": "generated" if p["generation"] != "supplied" else "imported", "file": None,
+               "content": p["content"], "ruleset_id": ruleset_id, "generation": p["generation"], "era": p["era"],
+               "place": p.get("place"), "players": p["players"], "recommended": p.get("recommended") or {},
+               "pace_options": p.get("pace_options") or ["slow"], "language": p.get("language", "en"), "summary": p["summary"],
+               "seed": p.get("seed"), "pregenerated": p.get("pregenerated_ids") or [], "owner_player_id": player_id,
+               "created_at": iso(self.now()), "notes": (p.get("notes") or "")[:2000]}
+        ws.put("adventure", aid, adv)
+        for kind, key in (("npc", "npcs"), ("location", "locations")):
+            for d in p.get(key) or []:
+                d = dict(d)
+                d["scope"] = {"adventure_id": aid, "game_id": None}
+                ws.put(kind, f"{aid}:{d['id']}", d)
+        ws.commit()
+        return {"adventure": {k: adv.get(k) for k in ("id", "title", "era", "players", "recommended", "summary", "generation")}}
+
+    _ALLOWED_SO = ("hold", "risk_tolerance", "perception_check", "default_spends", "never_do", "reply_to_messages")
+
+    def _prefill_character(self, c, p):
+        for k in ("name", "concept", "occupation", "era_place", "appearance", "personal_goal", "risk_factor", "language"):
+            if k in p and p[k] is not None:
+                c[k] = p[k]
+        sh = p["sheet"]
+        c["sheet"] = {"groups": sh["groups"], "derived": sh.get("derived") or {}, "unrated": [x for x in sh.get("unrated", []) if isinstance(x, str)]}
+        c["ruleset_state"] = p.get("ruleset_state") if isinstance(p.get("ruleset_state"), dict) else {}
+        c["inventory"] = [{"id": f"it_{i + 1:02d}", "item": str(x.get("item"))[:120], "qty": x.get("qty", 1), "state": "carried",
+                           "where": None, "notes": str(x.get("notes", ""))[:200], "source": "kit"}
+                          for i, x in enumerate(p.get("inventory") or []) if isinstance(x, dict) and x.get("item")]
+        c["means"] = p.get("means") if isinstance(p.get("means"), dict) else {}
+        rels = []
+        for x in p.get("relationships") or []:
+            if isinstance(x, dict) and x.get("with_id"):
+                tr = x.get("trust", 0)
+                rels.append({"with_type": "pc" if x.get("with_type") == "pc" else "npc", "with_id": str(x["with_id"])[:60],
+                             "attitude": str(x.get("attitude", ""))[:80], "trust": max(-3, min(3, tr if isinstance(tr, int) else 0)),
+                             "notes": str(x.get("notes", ""))[:300], "last_tick": 0})
+        c["relationships"] = rels
+        rn = p.get("run_notes") if isinstance(p.get("run_notes"), dict) else {}
+        c["run_notes"]["known_gaps"] = [x for x in rn.get("known_gaps", []) if isinstance(x, str)][:20]
+        c["knowledge"]["facts"] = [{"id": f"k_{i + 1:03d}", "text": t, "tick": 0, "source": "background (stated by the player)", "confidence": "hearsay"}
+                                   for i, t in enumerate(p.get("known_background") or [])]
+        st = p.get("settings") if isinstance(p.get("settings"), dict) else {}
+        sf = st.get("safety") if isinstance(st.get("safety"), dict) else {}
+        for k in ("lines", "veils", "fears"):
+            if isinstance(sf.get(k), list):
+                c["settings"]["safety"][k] = [x for x in sf[k] if isinstance(x, str)][:10]
+        if isinstance(sf.get("pvp_optout"), bool):
+            c["settings"]["safety"]["pvp_optout"] = sf["pvp_optout"]
+        so = st.get("standing_orders") if isinstance(st.get("standing_orders"), dict) else {}
+        for k in self._ALLOWED_SO:
+            if k in so:
+                c["settings"]["standing_orders"][k] = so[k]
+        c["origin"] = "provided" if p.get("route") == "provided" else "generated"
+
+    def _submit_character_package(self, player_id, task_id, t, p, reject, done):
+        params = t["params"]
+        game_id = params["game_id"]
+        ws = self._ws()
+        player = self._player(ws, player_id)
+        game = self._game(ws, game_id)
+        route = p.get("route") or params.get("route", "generate")
+        draft = self._draft_character(ws, game, player, {"route": route, "replaces_character_id": params.get("replaces_character_id")})
+        self._prefill_character(draft, p)
+        draft["status"] = "draft"
+        ws.touch("character", draft["id"])
+        ws.touch("game", game_id)
+        ws.commit()
+        payload = {"character_id": draft["id"], "route": "provided", "generated_locally": True, "concept": p.get("concept"),
+                   "sheet_json": draft["sheet"], "traceability": p.get("traceability"), "notes": p.get("notes"),
+                   "replaces_character_id": params.get("replaces_character_id")}
+        out = self.submit_action(player_id, game_id, "character_submission", text=p.get("concept", ""), payload=payload)
+        ws = self._ws()
+        c = ws.get("character", draft["id"])
+        v = c.get("validation") or {}
+        res = v.get("result")
+        ok = res in ("pass", "pass_with_adjustments") or (res is None and c.get("status") in ("validated", "active"))
+        if not ok:
+            problems = [f"{x.get('name')}: {x.get('note')}" for x in v.get("checks", []) if x.get("result") != "pass"] or \
+                       ["the server could not validate the character; see the results"]
+            r = reject(problems)
+            r["validation"] = v
+            r.update({k: out[k] for k in ("deliveries", "setup", "brief") if k in out})
+            return r
+        done({"character_id": c["id"], "validation": res})
+        return {"accepted": True, "task_id": task_id, "character_id": c["id"], "validation": v, **out}
 
     # ---- submit_action
     def submit_action(self, player_id, game_id, kind, text="", character_id=None, payload=None):

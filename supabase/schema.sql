@@ -40,6 +40,11 @@ create table if not exists gm_submit_actions (
   id text primary key, data jsonb not null, version int not null default 1,
   game_id text not null, tick int not null, updated_at timestamptz not null default now());
 
+create table if not exists gm_tasks (
+  id text primary key, data jsonb not null, version int not null default 1,
+  player_id text not null, status text not null default 'open', updated_at timestamptz not null default now());
+
+create index if not exists gm_tasks_player on gm_tasks (player_id, status);
 create index if not exists gm_characters_game on gm_characters (game_id);
 create index if not exists gm_characters_player on gm_characters (player_id);
 create index if not exists gm_npc_states_game on gm_npc_states (game_id);
@@ -56,4 +61,5 @@ alter table gm_characters enable row level security;
 alter table gm_npc_states enable row level security;
 alter table gm_location_states enable row level security;
 alter table gm_submit_actions enable row level security;
+alter table gm_tasks enable row level security;
 -- No policies: only the service role (the MCP server) can read or write.

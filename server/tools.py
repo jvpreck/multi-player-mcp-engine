@@ -28,7 +28,8 @@ def register(mcp, engine: Engine):
     @_safe
     def generate_adventure(player_id: str, ruleset_id: str, seed_text: str = "", document_text: str = "",
                            generation: str = "emergent", language: str = "en") -> dict:
-        """Generate a new adventure from a short seed (premise, theme, era, place) or from a document with notes or a full adventure.
+        """Start generating a new adventure from a short seed (premise, theme, era, place) or from a document. Returns a work package:
+        follow its instructions step by step in the chat, then send the result with submit_package.
         generation is 'emergent' (a secret seed, the rest is created in play) or 'full' (a complete secret plan)."""
         return engine.generate_adventure(player_id, ruleset_id, seed_text, document_text, generation, language)
 
@@ -36,8 +37,8 @@ def register(mcp, engine: Engine):
     @_safe
     def create_game(player_id: str, adventure_id: str, title: str = "", language: str = "", display_name: str = "",
                     lethality: str = "", tick_interval_hours: int = 0, tick_span: str = "", pvp: str = "") -> dict:
-        """Create a new game run from an adventure and become its host. Optional settings: lethality (low, moderate, high),
-        tick_interval_hours, tick_span (day, block), pvp (none, soft, full). Returns the setup questions."""
+        """Start a new game run from an adventure. Returns a work package that collects the settings (lethality low, moderate or high,
+        tick interval, pvp, pace, language) with the player; then send the result with submit_package. Optional arguments prefill defaults."""
         s = {k: v for k, v in {"lethality": lethality, "tick_interval_hours": tick_interval_hours or None,
                                "tick_span": tick_span, "pvp": pvp}.items() if v}
         return engine.create_game(player_id, adventure_id, title or None, language or None, s, display_name or None)
@@ -53,11 +54,19 @@ def register(mcp, engine: Engine):
     def generate_character(player_id: str, game_id: str, route: str = "generate", concept: str = "", pregen_id: str = "",
                            sheet_text: str = "", sheet_json: dict | None = None, npc_id: str = "",
                            replaces_character_id: str = "", changes: str = "") -> dict:
-        """Create a character for a game. route: 'generate' (built with the Master from a concept), 'pregen' (pick a pregenerated
-        one), 'provided' (a sheet you paste, cross-checked against the rules) or 'from_npc' (replacement only, from an available NPC).
-        After a character dies, pass replaces_character_id to continue in the same game."""
+        """Create a character for a game. route 'generate' (build a new one) and 'provided' (convert and check a sheet the player pastes)
+        return a work package to follow in the chat, then send the result with submit_package. route 'pregen' (pick a pregenerated one)
+        and 'from_npc' (replacement only, from an available NPC) act at once. After a character dies, pass replaces_character_id
+        to continue in the same game."""
         return engine.generate_character(player_id, game_id, route, concept, pregen_id or None, sheet_text, sheet_json,
                                          npc_id or None, replaces_character_id or None, changes)
+
+    @mcp.tool()
+    @_safe
+    def submit_package(player_id: str, task_id: str, package: dict) -> dict:
+        """Send back the finished work package for generate_adventure, create_game or generate_character. If accepted is false, fix the
+        listed problems and submit again with the same task_id."""
+        return engine.submit_package(player_id, task_id, package)
 
     @mcp.tool()
     @_safe

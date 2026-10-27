@@ -61,3 +61,24 @@ def adventure_record_from_file(entry: dict) -> dict:
         "summary": m.get("summary", ""), "seed": None, "owner_player_id": None,
         "pregenerated": m.get("pregenerated", []),
     }
+
+
+_PART_B = re.compile(r"^# PART B", re.M)
+
+
+def player_safe_part(body: str) -> str:
+    """Everything before the GM-only Part B. If there is no marker, nothing is player-safe."""
+    m = _PART_B.search(body or "")
+    return body[:m.start()].rstrip() if m else ""
+
+
+def client_task_sections() -> dict:
+    """Splits gm/client_tasks.md into COMMON and one section per task."""
+    text = split_front_matter(gm_file("client_tasks.md"))[1]
+    parts = re.split(r"^## (COMMON.*|TASK: \w+)\s*$", text, flags=re.M)
+    out = {}
+    for i in range(1, len(parts) - 1, 2):
+        name = parts[i]
+        key = "common" if name.startswith("COMMON") else name.split(":")[1].strip()
+        out[key] = parts[i + 1].strip()
+    return out
