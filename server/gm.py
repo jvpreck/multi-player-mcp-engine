@@ -22,9 +22,9 @@ class Usage:
         self.now_fn = now_fn or (lambda: datetime.now(timezone.utc))
         self.sleep = sleep or __import__("time").sleep
 
-    def _day(self, now):
+    def _day(self, now, tier="light"):
         from zoneinfo import ZoneInfo
-        return now.astimezone(ZoneInfo(config.GEMINI_QUOTA_TZ)).strftime("%Y-%m-%d")
+        return now.astimezone(ZoneInfo(config.QUOTA_TZ.get(tier, config.GEMINI_QUOTA_TZ))).strftime("%Y-%m-%d")
 
     def reserve(self, tier):
         """'ok' and counts the request, or 'day' (daily quota used up) or 'minute' (too many in the last 60 seconds)."""
@@ -33,9 +33,9 @@ class Usage:
         for _ in range(4):
             now = self.now_fn()
             t = now.timestamp()
-            key = f"{tier}:{self._day(now)}"
+            key = f"{tier}:{self._day(now, tier)}"
             doc, ver = self.store.get("usage", key)
-            doc = doc or {"id": key, "tier": tier, "day": self._day(now), "count": 0, "recent": []}
+            doc = doc or {"id": key, "tier": tier, "day": self._day(now, tier), "count": 0, "recent": []}
             doc["recent"] = [x for x in doc.get("recent", []) if t - x < 60]
             if doc["count"] >= lim["rpd"]:
                 return "day"
@@ -63,10 +63,10 @@ class Usage:
     def today(self):
         out = {}
         for tier in config.GEMINI_LIMITS:
-            doc = self.store.get("usage", f"{tier}:{self._day(self.now_fn())}")[0] or {}
+            doc = self.store.get("usage", f"{tier}:{self._day(self.now_fn(), tier)}")[0] or {}
             out[tier] = {"used_today": doc.get("count", 0), "daily_limit": config.GEMINI_LIMITS[tier]["rpd"],
                          "per_minute_limit": config.GEMINI_LIMITS[tier]["rpm"],
-                         "model": config.GEMINI_MODEL_TICK if tier == "tick" else config.GEMINI_MODEL_LIGHT}
+                         "model": {"tick": config.GEMINI_MODEL_TICK, "light": config.GEMINI_MODEL_LIGHT, "image": config.IMAGE_MODEL}[tier]}
         return out
 
 

@@ -37,7 +37,7 @@ SCHEMAS = {
     "create_game": {
         "title": "string", "language": "string", "display_name": "string",
         "lethality": "low | moderate | high", "pace": "string", "tick_interval_hours": "int", "tick_span": "day | block",
-        "pvp": "none | soft | full", "visibility": "private | open", "notes": "string"},
+        "pvp": "none | soft | full", "visibility": "private | open", "illustrations": "off | on", "notes": "string"},
 }
 
 
@@ -84,13 +84,14 @@ def adventure_context(ruleset_id, seed_text, document_text, generation, language
             "available_rulesets": [{"id": k, "title": v["meta"].get("title")} for k, v in files.rulesets().items()]}
 
 
-def game_context(adventure, defaults):
+def game_context(adventure, defaults, images_available=False):
     return {"adventure": {"id": adventure["id"], "title": adventure.get("title"), "era": adventure.get("era"),
                           "summary": adventure.get("summary"), "players": adventure.get("players"),
                           "recommended": adventure.get("recommended"), "pace_options": adventure.get("pace_options"),
                           "language": adventure.get("language")},
             "ruleset_id": adventure.get("ruleset_id"), "defaults": defaults,
-            "options": {"lethality": ["low", "moderate", "high"], "tick_span": ["day", "block"], "pvp": ["none", "soft", "full"], "visibility": ["private", "open"]},
+            "options": {"lethality": ["low", "moderate", "high"], "tick_span": ["day", "block"], "pvp": ["none", "soft", "full"], "visibility": ["private", "open"],
+                        "illustrations": ["off", "on"] if images_available else ["off"]},
             "explanations": {"lethality": lethality_help()}}
 
 
@@ -199,7 +200,7 @@ def validate_adventure(p, ruleset_ids):
     return problems
 
 
-def validate_game(p, adventure):
+def validate_game(p, adventure, images_available=False):
     problems = []
     if not isinstance(p, dict):
         return ["the package must be an object"]
@@ -212,6 +213,10 @@ def validate_game(p, adventure):
         problems.append("tick_interval_hours must be 1 to 168")
     if p.get("pvp", "soft") not in ("none", "soft", "full"):
         problems.append("pvp must be none, soft or full")
+    if p.get("illustrations", "off") not in ("off", "on"):
+        problems.append("illustrations must be off or on")
+    elif p.get("illustrations") == "on" and not images_available:
+        problems.append("illustrations are not available on this server; use off")
     if p.get("visibility", "private") not in ("private", "open"):
         problems.append("visibility must be private or open")
     po = adventure.get("pace_options") or []

@@ -215,6 +215,7 @@ Follow this order. Do not skip a step.
     - Each result is in its character's language and ends with a `next` prompt.
     - Lines and veils are respected.
     - Lethal outcomes respect the lethality level (§6.5).
+    - Any `illustrations` follow §5.6: only what the viewers know, only the characters who perceived it, lines and veils respected.
 
 ### 5.3 Autonomous actions (resolve at once, in intake)
 
@@ -255,6 +256,16 @@ The game is one world with several viewpoints. When something happens that other
 - **Delay.** A character who is elsewhere learns later, through the traces (an empty drawer), a message, an NPC, or `shared_digest` for public events.
 - Record each event once, with `participants` and `witnesses`, and write a `character_summaries` entry for each one so the server can add it to each character's record (state contract §6.4).
 - Never create a witness item that reveals anything the witness could not perceive.
+
+### 5.6 Illustrations (only when `game.settings.illustrations` is `"on"`)
+
+A picture is a gift to the players, never a requirement. Propose one in `resolve_tick` (state contract §6.7) only for a scene that deserves it: an arrival in a striking place, a discovery, a turning point, a confrontation, a loss. Most ticks have none. Never more than one unless two groups of characters are in clearly different scenes.
+
+- **Only what the viewers know.** The prompt describes what the characters in `visible_to` actually perceived. It never shows a secret, a hidden culprit, a clue they did not find, or anything yet to come. If the scene has a hidden side, show only the side they saw.
+- **Who sees it.** `visible_to` lists exactly the characters who perceived the scene (the witness rule). A character who was elsewhere or not aware is left out.
+- **Lines and veils.** Follow the strictest lines and veils among the viewers. Show the aftermath, the room, the light and the silence, not a violent act. No nudity. Never put a child in danger or in a violent or sexual scene.
+- **Make it drawable.** Concrete setting, light, composition, period details, mood. Prefer wide shots, figures from behind, silhouettes and distance. The image model cannot keep a character's face the same from picture to picture, so do not rely on faces. Do not ask for readable text, signs, letters or documents. Do not name real people, brands, or known artworks and characters.
+- **Match the world.** Era, place and tone come from the adventure and the ruleset, not from the prompt template. The server adds a general style line.
 
 ---
 

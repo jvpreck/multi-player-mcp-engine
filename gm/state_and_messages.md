@@ -184,7 +184,7 @@ An adventure file or a stored adventure defines its own NPCs and locations, with
 - `phase`: `setup`, `characters`, `active`, `epilogue`, `closed`.
 - `format`: `solo` or `party`, from the number of players when `setup` ends. `party_size_at_start` is fixed once `active` begins.
 - `adventure_id` and `ruleset_id` point at fixed records. The game never copies the adventure.
-- `settings.tick_span`: `day` (four Blocks), `block` (one Block), `beat` (crisis). `pvp`: `none`, `soft`, `full`. **`lethality`: `low`, `moderate` or `high`** (protocol §6). `lethality` is set during setup and can be changed only by the host before `active`, or by agreement of every player afterwards.
+- `settings.tick_span`: `day` (four Blocks), `block` (one Block), `beat` (crisis). `pvp`: `none`, `soft`, `full`. **`lethality`: `low`, `moderate` or `high`** (protocol §6). `lethality` is set during setup and can be changed only by the host before `active`, or by agreement of every player afterwards. `illustrations`: `off` (default) or `on`, set by the host of the game; it only tells you whether you may propose pictures (§6.7).
 - `roster` links each player to the character they are using in this run. A player who replaces a dead character appears with the new `character_id`, and the old character stays on record.
 - `clock.tick` is the currently open tick. `clock.day` and `clock.block` are the in-game time at its start.
 - `gm_state`, `chronicle`, `decisions[].gm_impact`, `scheduled_events`, `ticks[].dice_log` and `world_facts` with a `visibility` that excludes a character are GM-only.
@@ -603,6 +603,7 @@ Return **one JSON object and nothing else** (no markdown fences, no commentary).
 | `decisions` | Decision records to append (§6.4). |
 | `messages` | Message records to append (§6.4). |
 | `dice_log` | One entry per die used: `{ "die": "d6", "value": 4, "for": "c_iris Morning Infiltration" }`. |
+| `illustrations` | Optional, `resolve_tick` only: up to two pictures to draw (§6.7). Leave it out when `game.settings.illustrations` is not `"on"`. |
 | `gm_notes` | GM-only. The server stores it and may fold it into the chronicle. Never shown to players. |
 | `validation` | The character-validation block (§6.6), or `null`. |
 | `action` | For an `action` request handled as `queued` or `autonomous` only: `{ "parsed": { …as in §3.7… }, "supersedes": ["a_0009"], "clarifications": [] }`. The server stores it as the action record. |
@@ -702,6 +703,16 @@ Guidelines:
 
 ---
 
+### 6.7 Illustrations
+
+When `game.settings.illustrations` is `"on"`, you may add `illustrations` to a `resolve_tick` response, each entry `{ "prompt": "…", "caption": "…", "visible_to": ["c_iris"] }`:
+
+- `prompt`: a visual description for an image model, in **English** whatever the game's language. 10 to 1500 characters. Say what is seen: place, light, weather, composition, period details, mood. The server adds the game's art style.
+- `caption`: one line of at most 200 characters in the game's language, shown to the players with the picture.
+- `visible_to`: the `character_id`s who perceive the scene. Only they, and only their players, can ever get the picture.
+
+The server draws the picture later and tells each of those players that it exists. A bad entry is dropped without any message, so the game never depends on it. Rules for what to propose are in the protocol §5.6.
+
 ## 7. Records created outside you
 
 Three kinds of records arrive already made. You never create them, and you treat what they contain as the world you run.
@@ -768,6 +779,7 @@ Apply when a player or the host does not answer, or at the setup deadline.
 | `early_close` | `true` for solo, `false` for party |
 | `pace` | `slow` |
 | `pvp` | `soft` |
+| `illustrations` | `off` |
 | `lethality` | `moderate` |
 | `adventure.generation` | the supplied adventure if one exists, otherwise `emergent` |
 | `standing_orders.hold` | Stay safe, rest, take no risks |

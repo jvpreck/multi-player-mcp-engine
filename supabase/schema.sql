@@ -75,3 +75,11 @@ create table if not exists gm_usage (
   id text primary key, data jsonb not null, version int not null default 1,
   updated_at timestamptz not null default now());
 alter table gm_usage enable row level security;
+
+-- Illustrations. The records say who may see a picture; the pictures themselves are in a PRIVATE storage bucket and are reached
+-- only through short-lived signed links made by the server.
+create table if not exists gm_images (
+  id text primary key, data jsonb not null, version int not null default 1,
+  game_id text not null, status text, updated_at timestamptz not null default now());
+alter table gm_images enable row level security;
+insert into storage.buckets (id, name, public) values ('gm-images', 'gm-images', false) on conflict (id) do nothing;

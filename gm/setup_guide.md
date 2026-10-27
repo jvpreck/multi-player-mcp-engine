@@ -22,7 +22,7 @@ At any time you can say "what can I do?" and Claude will remind you of your opti
 ## [choose] How to choose a game
 
 - **See what can be played.** Ask for the adventure list. Each adventure has a title, era, ruleset, how many players it supports and a short premise. Secrets are never listed.
-- **Start your own game.** Pick an adventure (or ask Claude to write a new one from your idea), then Claude asks you for the settings: language, how deadly it is (lethality), how often the world advances (the tick), the stance on players fighting each other (PvP), and who can join (**private**: only people who get the game id, or **open**: it is listed for other registered players while it has free seats). You get a **game id**. Share it with friends so they can join. Playing alone is fully supported.
+- **Start your own game.** Pick an adventure (or ask Claude to write a new one from your idea), then Claude asks you for the settings: language, how deadly it is (lethality), how often the world advances (the tick), the stance on players fighting each other (PvP), and who can join (**private**: only people who get the game id, or **open**: it is listed for other registered players while it has free seats), and whether the game draws **pictures** of key scenes (see "Other things worth knowing"). You get a **game id**. Share it with friends so they can join. Playing alone is fully supported.
 - **Join a game.** Ask for the list of games. It shows your games and the open ones that have free seats. You can also join any game if someone gives you its game id.
 - **Several games.** You can be in more than one game, with one character in each. Tell Claude which one you mean if it is not obvious.
 
@@ -104,5 +104,6 @@ When a character dies you stay **in the same game**. The server offers a replace
 - **Dice.** The server provides the dice, not Claude and not you. Rolls are shown as one plain line, and difficulties are never shown.
 - **Language.** You play in your language. A game has a language and each player's results follow their own.
 - **Setting up a game.** A new game has a setup period (3 days by default) in which players join and make characters. The story starts when the characters are confirmed.
+- **Pictures.** A game can have illustrations on or off (the host of the game chooses, and it is only offered if the server has it set up). When it is on, the Master occasionally asks for a picture of an important scene. Only the characters who were there, and their players, can see it. Claude tells you when one is ready and gives you a link that opens in your browser. The link stops working after a few minutes, but you can ask for any past picture again at any time and get a new link. Pictures can be imperfect: faces and fine details are not consistent from one picture to the next.
 - **Hosts and administrators.** Only the host of the server can delete games, adventures or players, or reset a key. Ask the host if you need one.
 - **Fairness between you and the story.** Claude and the Master never decide for your character. You choose what your character does.

@@ -22,8 +22,24 @@ GEMINI_THINKING_LEVEL_TICK = os.environ.get("GEMINI_THINKING_LEVEL_TICK", GEMINI
 GEMINI_LIMITS = {
     "tick": {"rpd": int(os.environ.get("GEMINI_TICK_RPD", "18")), "rpm": int(os.environ.get("GEMINI_TICK_RPM", "4"))},
     "light": {"rpd": int(os.environ.get("GEMINI_LIGHT_RPD", "450")), "rpm": int(os.environ.get("GEMINI_LIGHT_RPM", "9"))},
+    # images: Cloudflare gives 10,000 Neurons a day, about 170 images at 1024x1024 and 4 steps
+    "image": {"rpd": int(os.environ.get("IMAGE_RPD", "150")), "rpm": int(os.environ.get("IMAGE_RPM", "6"))},
 }
 GEMINI_QUOTA_TZ = "America/Los_Angeles"  # provider quotas reset at midnight Pacific
+QUOTA_TZ = {"tick": GEMINI_QUOTA_TZ, "light": GEMINI_QUOTA_TZ, "image": "UTC"}  # Cloudflare's free allowance resets at 00:00 UTC
+
+# Illustrations (Cloudflare Workers AI, FLUX.1 schnell). Needs CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN; without them the option is unavailable.
+IMAGE_MODEL = os.environ.get("IMAGE_MODEL", "@cf/black-forest-labs/flux-1-schnell")
+IMAGE_STEPS = int(os.environ.get("IMAGE_STEPS", "4"))  # 1 to 8
+IMAGE_STYLE = os.environ.get("IMAGE_STYLE", "Atmospheric painterly illustration, muted colours, dramatic light, no text, no letters, no watermark.")
+IMAGE_BUCKET = os.environ.get("IMAGE_BUCKET", "gm-images")
+IMAGE_URL_TTL_SECONDS = int(os.environ.get("IMAGE_URL_TTL_SECONDS", "900"))
+IMAGES_PER_TICK = int(os.environ.get("IMAGES_PER_TICK", "2"))  # most the AI Master may ask for in one response
+IMAGES_PER_RUN = int(os.environ.get("IMAGES_PER_RUN", "3"))  # most generated per scheduler run, to stay inside the function time
+IMAGE_MAX_ATTEMPTS = 2
+IMAGE_TIMEOUT_SECONDS = 25
+FUNCTION_BUDGET_SECONDS = int(os.environ.get("FUNCTION_BUDGET_SECONDS", "50"))  # Vercel maxDuration is 60
+IMAGE_PENDING_DAYS = 3  # a picture not drawn after this long is dropped
 LIGHT_MAX_WAIT_SECONDS = 8
 GM_MAX_ATTEMPTS = int(os.environ.get("GM_MAX_ATTEMPTS", "2"))
 
@@ -40,6 +56,7 @@ TABLES = {
     "task": "gm_tasks",
     "key": "gm_keys",
     "usage": "gm_usage",
+    "image": "gm_images",
 }
 TASK_TTL_HOURS = 48
 TASK_MAX_ATTEMPTS = 5

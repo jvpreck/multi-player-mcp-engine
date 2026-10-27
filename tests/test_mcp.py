@@ -4,7 +4,7 @@ import json
 from server.app import build_mcp, client_instructions
 
 EXPECTED = {"register_player", "get_setup_guide", "list_games", "list_adventures", "generate_adventure", "create_game", "join_game", "generate_character", "submit_action",
-            "get_results", "get_character", "get_rules", "save_story_summary", "submit_package"}
+            "get_results", "get_character", "get_rules", "save_story_summary", "submit_package", "list_images", "get_image", "set_game_options"}
 
 
 class Dummy:

@@ -58,6 +58,8 @@ To add a ruleset, drop a markdown file with front matter into `rulesets/`. To ad
 | `submit_package` | Sends back the finished package (`task_id` and the result). The server validates and stores it, or returns the problems to fix |
 | `submit_action` | Actions, speech, setup answers, character confirmation, standing orders, decisions, messages, free queries, pause |
 | `get_results` | Collect results not yet delivered |
+| `list_images`, `get_image` | The pictures of a game that the player's characters could see, and a fresh short-lived link to one of them |
+| `set_game_options` | The host of a game turns illustrations on or off |
 | `get_character`, `get_rules`, `save_story_summary` | Resync, read the ruleset, store the client's story summary |
 
 **Work packages.** For creative work, the server sends the client a structured package: step-by-step instructions, the ruleset and context needed, the exact schema of the result, and the instruction to return it with `submit_package`. The client does the work locally. The server checks structure and limits, stores the result and, for characters, has the AI Master cross-check the sheet against the rules. A package expires after 48 hours and allows 5 attempts. A client-written adventure is stored as data and fenced in the AI Master's prompt, so it cannot change the protocol. Only join games from hosts you trust.
@@ -77,10 +79,23 @@ The free tier gives a strong model few requests (about 20 a day, 5 a minute) and
 - **Light model over its limits:** the player's request waits a few seconds, then gets a plain "the AI Master is busy, try again" message.
 - **Sizing.** Three or four games with 24-hour ticks use about 4 strong requests a day plus the character checks, far under the 18 a day guard. Retries after an invalid AI answer each count as a request. The host command `gm_usage` shows today's counts.
 
+## Illustrations
+
+Each game has a setting `illustrations` (`off` by default, `on` chosen when the game is created, or later by the game's host with `set_game_options`). It is only offered when the server has the image provider configured.
+
+- **Who asks for a picture.** Only the AI Master, in a tick response, as `illustrations: [{prompt, caption, visible_to}]` (state contract §6.7, protocol §5.6). A bad proposal is dropped silently, so a picture can never block a tick.
+- **Generation.** The proposal is queued as a `gm_images` record. After the scheduler has resolved ticks, `/internal/resolve_tick` draws the queued pictures with **Cloudflare Workers AI, FLUX.1 schnell** (`prompt` and `steps`, base64 JPEG back). It draws at most `IMAGES_PER_RUN` (3) per run and stops when the function's time is nearly used or the day's guard (`IMAGE_RPD`, 150, under Cloudflare's roughly 170 a day at 1024x1024 and 4 steps) is reached. The rest stay queued for the next run, and are dropped after 3 days. A failure is tried once more, then marked failed.
+- **Storage.** Image files live in a **private Supabase Storage bucket** (`gm-images`, created by `supabase/schema.sql`), at `<game_id>/<image_id>.jpg`. The database holds only the record: prompt, caption, who may see it, status and path. Nobody can open the bucket directly.
+- **Short-lived links.** When a player asks (`get_image`), the server checks that one of that player's characters is in `visible_to`, then asks Supabase to sign a link for the file (`create_signed_url`, 15 minutes by default, `IMAGE_URL_TTL_SECONDS`). The link carries a token and stops working at expiry. Links are never stored, so a player can ask again for any old picture and gets a new one each time. `list_images` lists the pictures a player's characters could see.
+- **Who is told.** `get_results` includes `illustrations` for pictures that are ready and that the player has not been told about yet.
+- **Cleanup.** The admin command `delete_game` also deletes the game's picture files. Supabase's free tier gives 1 GB of storage, which holds several thousand pictures of this size.
+- **Admin.** `generate_images` draws queued pictures now. `gm_usage` shows the picture count for the day.
+- **Limits.** FLUX.1 schnell takes only a prompt and a step count (no size, no seed), so the picture size is whatever the model gives, and faces are not consistent between pictures. Claude Desktop may not show images inline, which is why pictures are links.
+
 ## Players, keys and the host
 
 - **Player key.** A new player calls `register_player`. The server creates a player with a random id and returns a random secret key (`pk_...`) **once**. Every other player tool takes it as `player_key`. The database stores only the key's SHA-256 hash and never the key. The player's Claude keeps the key in the chat or project and never shows it to anyone. Knowing someone's internal id, or the shared connector key, is not enough to act as them.
-- **Host administration is not reachable by players.** There are no admin tools in MCP. The host commands (`list_games`, `get_game`, `list_players`, `list_adventures`, `delete_game`, `close_game`, `delete_adventure`, `delete_player`, `reset_player_key`, `purge_tasks`, `gm_usage`) are served at `POST /internal/admin`, which needs `Authorization: Bearer $ADMIN_SECRET`. This is a third secret, different from the players' shared key and from `CRON_SECRET`, and the endpoint is closed when it is not set.
+- **Host administration is not reachable by players.** There are no admin tools in MCP. The host commands (`list_games`, `get_game`, `list_players`, `list_adventures`, `delete_game`, `close_game`, `delete_adventure`, `delete_player`, `reset_player_key`, `purge_tasks`, `gm_usage`, `generate_images`) are served at `POST /internal/admin`, which needs `Authorization: Bearer $ADMIN_SECRET`. This is a third secret, different from the players' shared key and from `CRON_SECRET`, and the endpoint is closed when it is not set.
   - **From GitHub:** Actions, `admin`, Run workflow. Only people with write access to this repository can run it (players are readers). It offers `delete_game`, `close_game`, `delete_adventure`, `delete_player` and `purge_tasks` only, because this repository is public and the output of a run is visible to everyone. Repository secrets needed: `SERVER_URL` and `ADMIN_SECRET`.
   - **From your computer:** for listings, `get_game` and `reset_player_key`, which show private data:
     ```
@@ -94,7 +109,7 @@ The free tier gives a strong model few requests (about 20 a day, 5 a minute) and
 
 ## Setup
 
-1. Run `supabase/schema.sql` in the Supabase SQL editor (it is safe to run again: it adds the `gm_tasks`, `gm_keys` and `gm_usage` tables).
+1. Run `supabase/schema.sql` in the Supabase SQL editor (it is safe to run again: it adds the `gm_tasks`, `gm_keys`, `gm_usage` and `gm_images` tables and the private `gm-images` storage bucket).
 2. Environment variables on Vercel:
    - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
    - `GEMINI_API_KEY`. Optional: `GEMINI_MODEL_TICK` (default `gemini-3.8-flash`), `GEMINI_MODEL_LIGHT` (default `gemini-3.5-flash-lite`; the old `GEMINI_MODEL` still works as its name), `GEMINI_THINKING_LEVEL` (default `medium`) and `GEMINI_THINKING_LEVEL_TICK`
@@ -102,6 +117,7 @@ The free tier gives a strong model few requests (about 20 a day, 5 a minute) and
    - `MCP_API_KEY`: the shared key for players (`Authorization: Bearer`, `x-api-key`, or `?key=` in the connector URL)
    - `CRON_SECRET`: for `/internal/resolve_tick`
    - `ADMIN_SECRET`: for `/internal/admin` (host commands). Use a different random value
+   - Illustrations (optional): `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` (an API token that may use Workers AI). Without them the option is simply not offered. Optional: `IMAGE_MODEL` (default `@cf/black-forest-labs/flux-1-schnell`), `IMAGE_STEPS` (4, at most 8), `IMAGE_STYLE`, `IMAGE_RPD`, `IMAGE_RPM`, `IMAGE_URL_TTL_SECONDS`, `IMAGES_PER_RUN`
    - `GITHUB_TOKEN`: a **fine-grained personal access token** with *Contents: read-only* on the single repository `jvpreck/rpg_adventures`. The server uses it to read the adventures. Optional: `ADVENTURES_REPO` (default `jvpreck/rpg_adventures`), `ADVENTURES_REF` (default `main`), `ADVENTURES_CACHE_SECONDS` (default 300)
 3. Players add `https://<your-app>.vercel.app/mcp?key=<MCP_API_KEY>` as a custom connector.
 4. Schedule `/internal/resolve_tick`. Vercel Hobby cron runs at most once a day, so use an external scheduler for hourly checks.

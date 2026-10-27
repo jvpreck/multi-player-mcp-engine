@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 import secrets
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -41,9 +42,10 @@ def short(prefix):
 
 
 class Engine:
-    def __init__(self, store, gm, now_fn=None):
+    def __init__(self, store, gm, now_fn=None, images=None):
         self.store = store
         self.gm = gm
+        self.images = images  # an ImageService, or None when illustrations are not set up
         self.now_fn = now_fn or (lambda: datetime.now(timezone.utc))
 
     def now(self):
@@ -223,6 +225,8 @@ class Engine:
         a.apply_messages(game, resp.get("messages"), by_id, tick)
         a.apply_results(game, resp.get("results"), by_id, tick, store_in_tick)
         a.apply_shared_digest(game, resp.get("shared_digest"), chars, tick)
+        if mode == "resolve_tick":
+            self._queue_illustrations(ws, game, resp.get("illustrations"), by_id, tick)
         entry = next((t for t in game.get("ticks", []) if t["n"] == tick), None)
         if entry is not None:
             entry.setdefault("dice_log", []).extend(resp.get("dice_log") or [])
@@ -305,6 +309,7 @@ class Engine:
             ws.touch("character", c["id"])
             out["deliveries"].append({"game_id": c["game_id"], "character_id": c["id"], "items": [self._client_item(i) for i in items],
                                       "sync": redact.sync_block(g, c, allc)})
+        out["illustrations"] = self._new_illustrations(ws, player_id, chars, mark)
         p = ws.get("player", player_id)
         gids = {game_id} if game_id else set((p or {}).get("games", []))
         for gid in gids:
@@ -317,6 +322,124 @@ class Engine:
                     ws.touch("game", gid)
                     out["setup"].append({"game_id": gid, "items": [self._client_item(i) for i in items]})
         return out
+
+    # ---------------------------------------------------------- illustrations
+    def _images_available(self):
+        return bool(self.images and self.images.configured)
+
+    def _queue_illustrations(self, ws, game, raw, by_id, tick):
+        """The AI Master may propose pictures. They are only queued here (drawn later), only when the game has illustrations on, and a bad
+        proposal is dropped quietly: pictures must never get in the way of play."""
+        if (game.get("settings") or {}).get("illustrations") != "on" or not self._images_available() or not isinstance(raw, list):
+            return
+        for it in raw[:config.IMAGES_PER_TICK]:
+            if not isinstance(it, dict) or not isinstance(it.get("prompt"), str) or not (10 <= len(it["prompt"].strip()) <= 1500):
+                continue
+            vis = [c for c in (it.get("visible_to") or []) if isinstance(c, str) and c in by_id]
+            if not vis:
+                continue
+            iid = short("img")
+            ws.put("image", iid, {"id": iid, "game_id": game["id"], "tick": tick, "prompt": it["prompt"].strip(), "caption": str(it.get("caption") or "")[:200],
+                                  "visible_to": sorted(set(vis)), "status": "pending", "attempts": 0, "created_at": iso(self.now()), "notified": []})
+
+    def _new_illustrations(self, ws, player_id, chars, mark):
+        out = []
+        for c in chars:
+            for im in ws.find("image", game_id=c["game_id"], status="ready"):
+                if c["id"] in im["visible_to"] and player_id not in im.get("notified", []):
+                    out.append({"game_id": c["game_id"], "character_id": c["id"], "image_id": im["id"], "tick": im["tick"], "caption": im.get("caption", "")})
+                    if mark:
+                        im.setdefault("notified", []).append(player_id)
+                        ws.touch("image", im["id"])
+        return out
+
+    def process_images(self, limit=None, budget_seconds=None):
+        """Draws queued pictures (called after the scheduler resolves ticks, or by the host). Stops at the first quota limit, and when
+        there is not enough of the function's time left for another picture."""
+        if not self._images_available():
+            return {"processed": 0, "note": "illustrations are not set up"}
+        limit = limit or config.IMAGES_PER_RUN
+        deadline = None if budget_seconds is None else time.monotonic() + budget_seconds
+        done = failed = dropped = 0
+        rows = sorted(self.store.find("image", status="pending"), key=lambda r: r[0].get("created_at", ""))
+        for rec, _ in rows[:limit * 3]:
+            if done + failed >= limit:
+                break
+            if deadline is not None and deadline - time.monotonic() < config.IMAGE_TIMEOUT_SECONDS + 5:
+                break
+            ws = self._ws()
+            im = ws.get("image", rec["id"])
+            if self.now() - datetime.fromisoformat(im["created_at"].replace("Z", "+00:00")) > timedelta(days=config.IMAGE_PENDING_DAYS):
+                im["status"] = "dropped"
+                ws.touch("image", im["id"])
+                ws.commit()
+                dropped += 1
+                continue
+            if self.images.usage.reserve("image") != "ok":
+                break
+            try:
+                data, ctype = self.images.provider.generate((config.IMAGE_STYLE + " " + im["prompt"])[:2048])
+                path = f"{im['game_id']}/{im['id']}.jpg"
+                self.images.storage.put(path, data, ctype)
+                im.update({"status": "ready", "path": path, "bytes": len(data), "content_type": ctype, "ready_at": iso(self.now())})
+                done += 1
+            except Exception as e:
+                im["attempts"] = im.get("attempts", 0) + 1
+                im["last_error"] = f"{type(e).__name__}: {str(e)[:150]}"
+                if im["attempts"] >= config.IMAGE_MAX_ATTEMPTS:
+                    im["status"] = "failed"
+                    failed += 1
+            ws.touch("image", im["id"])
+            ws.commit()
+        return {"generated": done, "failed": failed, "dropped": dropped}
+
+    def set_game_options(self, player_id, game_id, illustrations=""):
+        """The host of a game (the player who created it, not the server administrator) can turn illustrations on or off."""
+        ws = self._ws()
+        g = self._game(ws, game_id)
+        if g.get("host_player_id") != player_id:
+            raise EngineError("only the host of this game can change its options")
+        if illustrations:
+            if illustrations not in ("on", "off"):
+                raise EngineError("illustrations must be on or off")
+            if illustrations == "on" and not self._images_available():
+                raise EngineError("illustrations are not available on this server")
+            g["settings"]["illustrations"] = illustrations
+        ws.touch("game", game_id)
+        ws.commit()
+        return {"game_id": game_id, "illustrations": g["settings"].get("illustrations", "off")}
+
+    def _my_character_ids(self, ws, player_id, game_id):
+        return {c["id"] for c in ws.find("character", game_id=game_id, player_id=player_id)}
+
+    def list_images(self, player_id, game_id):
+        ws = self._ws()
+        self._game(ws, game_id)
+        mine = self._my_character_ids(ws, player_id, game_id)
+        if not mine:
+            raise EngineError("this player has no character in that game")
+        rows = [im for im in ws.find("image", game_id=game_id) if set(im["visible_to"]) & mine and im["status"] in ("ready", "pending")]
+        rows.sort(key=lambda im: (im["tick"], im["created_at"]))
+        return {"images": [{"image_id": im["id"], "tick": im["tick"], "caption": im.get("caption", ""), "status": im["status"]} for im in rows],
+                "note": "Call get_image with an image_id to get a link. A picture still 'pending' is being drawn and is ready after the next tick run."}
+
+    def get_image(self, player_id, game_id, image_id):
+        """A fresh short-lived link to a picture one of the player's characters could see. Can be asked again for any old picture."""
+        ws = self._ws()
+        self._game(ws, game_id)
+        im = ws.get("image", image_id)
+        mine = self._my_character_ids(ws, player_id, game_id)
+        if im is None or im["game_id"] != game_id or not (set(im["visible_to"]) & mine):
+            raise EngineError("unknown image")
+        if im["status"] == "pending":
+            return {"image_id": image_id, "status": "pending", "message": "This picture is still being drawn. Try again after the next tick run."}
+        if im["status"] != "ready" or not self.images:
+            return {"image_id": image_id, "status": im["status"], "message": "This picture is not available."}
+        ttl = config.IMAGE_URL_TTL_SECONDS
+        return {"image_id": image_id, "status": "ready", "tick": im["tick"], "caption": im.get("caption", ""),
+                "url": self.images.storage.signed_url(im["path"], ttl), "expires_in_seconds": ttl,
+                "note": f"Show this as a link for the player to open in the browser. It stops working after {ttl // 60} minutes, "
+                        "and the player can ask for the picture again at any time to get a new link. Do not post it anywhere shared."}
 
     @staticmethod
     def _client_item(i):
@@ -465,7 +588,7 @@ class Engine:
             raise EngineError(f"the adventure needs ruleset {adv.get('ruleset_id')}, which this server does not have")
         rec = adv.get("recommended") or {}
         s = {"tick_interval_hours": rec.get("tick_interval_hours", 24), "tick_span": rec.get("tick_span", "day"),
-             "early_close": None, "pace": "slow", "pvp": "soft", "visibility": "private", "lethality": rec.get("lethality", "moderate"),
+             "early_close": None, "pace": "slow", "pvp": "soft", "visibility": "private", "illustrations": "off", "lethality": rec.get("lethality", "moderate"),
              "tone_preset": None, "modules": [], "setup_deadline": iso(self.now() + timedelta(days=3)),
              "crisis": {"active": False, "tick_span": "beat", "tick_interval_hours": 24}}
         for k, v in (settings or {}).items():
@@ -581,8 +704,8 @@ class Engine:
                         "lethality": (params.get("settings") or {}).get("lethality") or rec.get("lethality", "moderate"),
                         "tick_interval_hours": (params.get("settings") or {}).get("tick_interval_hours") or rec.get("tick_interval_hours", 24),
                         "tick_span": (params.get("settings") or {}).get("tick_span") or rec.get("tick_span", "day"),
-                        "pvp": (params.get("settings") or {}).get("pvp") or "soft", "pace": "slow", "visibility": "private"}
-            ctx = tasks.game_context(adv, defaults)
+                        "pvp": (params.get("settings") or {}).get("pvp") or "soft", "pace": "slow", "visibility": "private", "illustrations": "off"}
+            ctx = tasks.game_context(adv, defaults, self._images_available())
         elif kind == "generate_character":
             game = self._game(ws, params["game_id"])
             if not any(r["player_id"] == player_id for r in game["roster"]):
@@ -653,10 +776,10 @@ class Engine:
             return {"accepted": True, "task_id": task_id, **out}
         if kind == "create_game":
             adv = self._adventure(ws, params["adventure_id"])
-            problems = tasks.validate_game(package, adv)
+            problems = tasks.validate_game(package, adv, self._images_available())
             if problems:
                 return reject(problems)
-            s = {k: package[k] for k in ("lethality", "tick_span", "tick_interval_hours", "pvp", "pace", "visibility") if package.get(k)}
+            s = {k: package[k] for k in ("lethality", "tick_span", "tick_interval_hours", "pvp", "pace", "visibility", "illustrations") if package.get(k)}
             out = self._create_game(player_id, params["adventure_id"], package.get("title") or params.get("title"),
                                     package.get("language") or params.get("language"), s, package.get("display_name") or params.get("display_name"))
             done({"game_id": out["game_id"]})
@@ -998,6 +1121,7 @@ class Engine:
         return {"game_id": game_id, "resolved": True, "tick": n, "phase": self._game(self._ws(), game_id)["phase"]}
 
     def resolve_due(self):
+        started = time.monotonic()
         ids = self.store.due_games(iso(self.now()))
         out = []
         for gid in ids:
@@ -1005,4 +1129,8 @@ class Engine:
                 out.append(self.resolve_tick(gid))
             except Exception as e:  # one failing game must not block the others
                 out.append({"game_id": gid, "resolved": False, "reason": f"error: {e}"})
-        return {"checked": len(ids), "results": out}
+        try:
+            images = self.process_images(budget_seconds=config.FUNCTION_BUDGET_SECONDS - (time.monotonic() - started))
+        except Exception as e:  # pictures never block the game
+            images = {"error": str(e)[:200]}
+        return {"checked": len(ids), "results": out, "images": images}

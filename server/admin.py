@@ -20,6 +20,7 @@ COMMANDS = {
     "delete_player": "player_id [force]: removes the player and their characters, and takes them out of games",
     "reset_player_key": "player_id: issues a new secret key (shown once) when a player lost theirs or it leaked",
     "gm_usage": "no arguments: AI Master requests used today per model, and the limits",
+    "generate_images": "no arguments: draws the queued pictures now (the scheduler also does it after each run)",
     "purge_tasks": "no arguments: removes expired, finished and failed work packages",
 }
 
@@ -47,6 +48,15 @@ def _delete_game_records(engine, gid):
         for d, _ in rows:
             st.delete(kind, doc_key(kind, d))
         n[kind] = len(rows)
+    imgs = st.find("image", game_id=gid)
+    for d, _ in imgs:
+        if d.get("path") and engine.images:
+            try:
+                engine.images.storage.delete(d["path"])
+            except Exception:
+                pass
+        st.delete("image", d["id"])
+    n["image"] = len(imgs)
     for kind in ("npc", "location"):
         rows = st.find(kind, game_id=gid)
         for d, _ in rows:
@@ -190,3 +200,7 @@ def _cmd_purge_tasks(engine, args):
 def _cmd_gm_usage(engine, args):
     from .gm import Usage
     return {"usage": Usage(engine.store, engine.now_fn).today(), "note": "Counts are per provider day (Pacific time)."}
+
+
+def _cmd_generate_images(engine, args):
+    return engine.process_images()

@@ -80,5 +80,6 @@ Steps:
    - **PvP stance:** `none`, `soft` (default), `full`.
    - Solo or with others. If with others, tell them the game id will be given after creation so they can share it.
    - **Visibility:** `private` (default: only people who are given the game id can join) or `open` (the game is listed for any registered player to find and join while it has free seats).
-3. **Submit** with `submit_package`: `title`, `language`, `display_name`, `lethality`, `pace`, `tick_interval_hours`, `tick_span`, `pvp`, `visibility`, `notes`.
+   - **Illustrations:** `off` (default) or `on`, offered only if `package.context.options.illustrations` lists `on`. With `on`, the game occasionally gets a picture of an important scene, shown only to the characters who were there. Pictures open as a link in the browser and the link expires after a few minutes, but the player can ask for any past picture again.
+3. **Submit** with `submit_package`: `title`, `language`, `display_name`, `lethality`, `pace`, `tick_interval_hours`, `tick_span`, `pvp`, `visibility`, `illustrations`, `notes`.
 4. **When the server answers,** give the player the `game_id`, show the setup questions the server returns, and carry on with character creation (`generate_character`).

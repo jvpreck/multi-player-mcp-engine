@@ -100,6 +100,8 @@ def index_for(kind, doc):
         return {"owner_player_id": doc.get("owner_player_id")}
     if kind == "task":
         return {"player_id": doc["player_id"], "status": doc.get("status")}
+    if kind == "image":
+        return {"game_id": doc["game_id"], "status": doc.get("status")}
     if kind == "key":
         return {"player_id": doc.get("player_id")}
     return {}

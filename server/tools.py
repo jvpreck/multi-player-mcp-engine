@@ -119,6 +119,25 @@ def register(mcp, engine: Engine):
 
     @mcp.tool()
     @_safe
+    def list_images(player_key: str, game_id: str) -> dict:
+        """The pictures of the story that the player's characters could see in this game: image_id, tick and caption."""
+        return engine.list_images(engine.authenticate(player_key), game_id)
+
+    @mcp.tool()
+    @_safe
+    def get_image(player_key: str, game_id: str, image_id: str) -> dict:
+        """A fresh short-lived link to one picture. Call it again whenever the player wants to see an old picture. Give the link to the
+        player to open in the browser. It expires after a few minutes. Never post it anywhere shared."""
+        return engine.get_image(engine.authenticate(player_key), game_id, image_id)
+
+    @mcp.tool()
+    @_safe
+    def set_game_options(player_key: str, game_id: str, illustrations: str = "") -> dict:
+        """For the host of a game only: turn illustrations 'on' or 'off' for the game."""
+        return engine.set_game_options(engine.authenticate(player_key), game_id, illustrations)
+
+    @mcp.tool()
+    @_safe
     def get_rules(ruleset_id: str) -> dict:
         """Read the text of a ruleset."""
         return engine.get_rules(ruleset_id)

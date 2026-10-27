@@ -20,8 +20,11 @@ def build_engine():
     from .db import SupabaseStore
     from .gm import GeminiGM, Usage
     sb = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
+    from .images import CloudflareFlux, ImageService, SupabaseImageStorage
     store = SupabaseStore(sb)
-    return Engine(store, GeminiGM(usage=Usage(store)))
+    usage = Usage(store)
+    images = ImageService(CloudflareFlux(), SupabaseImageStorage(sb), usage)  # unavailable until the Cloudflare variables are set
+    return Engine(store, GeminiGM(usage=usage), images=images)
 
 
 def client_instructions() -> str:
