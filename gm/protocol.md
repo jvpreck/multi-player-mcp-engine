@@ -264,8 +264,9 @@ A picture is a gift to the players, never a requirement. Propose one in `resolve
 - **Only what the viewers know.** The prompt describes what the characters in `visible_to` actually perceived. It never shows a secret, a hidden culprit, a clue they did not find, or anything yet to come. If the scene has a hidden side, show only the side they saw.
 - **Who sees it.** `visible_to` lists exactly the characters who perceived the scene (the witness rule). A character who was elsewhere or not aware is left out.
 - **Lines and veils.** Follow the strictest lines and veils among the viewers. Show the aftermath, the room, the light and the silence, not a violent act. No nudity. Never put a child in danger or in a violent or sexual scene.
-- **Make it drawable.** Concrete setting, light, composition, period details, mood. Prefer wide shots, figures from behind, silhouettes and distance. The image model cannot keep a character's face the same from picture to picture, so do not rely on faces. Do not ask for readable text, signs, letters or documents. Do not name real people, brands, or known artworks and characters.
-- **Match the world.** Era, place and tone come from the adventure and the ruleset, not from the prompt template. The server adds a general style line.
+- **Make it drawable.** Concrete setting, light, composition, period details, mood. People who have a portrait can be shown with their face: list their ids in `subjects` and the server keeps their face, build and clothes. Anyone without a portrait should be seen from behind, in silhouette or at a distance. Do not ask for readable text, signs, letters or documents. Do not name real people, brands, or known artworks and characters.
+- **Match the world.** Era, place and tone come from the adventure and the ruleset, not from the prompt template. The server adds the game's fixed `image_style` to every picture; never contradict it.
+- **Portraits.** The first time an NPC appears in the fiction, request their portrait (state contract §6.7) with a concrete appearance that fits their definition and the era, and only for the characters who have met them.
 
 ---
 

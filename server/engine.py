@@ -13,6 +13,7 @@ from . import config, files, prompt, redact, tasks
 from .db import Conflict, Workspace, state_key
 from .dice import make_dice
 from .gm import GMBusy, GMError, parse
+from .images import ImageError, overlay_name
 
 PLAYER_KINDS = {"setup_answers", "character_submission", "character_confirm", "action", "standing_orders",
                 "thread_note", "message", "decision", "free_query", "pause", "resume", "say"}
@@ -212,8 +213,16 @@ class Engine:
         a = ap.Applier(ws, game_id, mode, iso(self.now()))
         a.snapshot_alive(ws.load_game_characters(game_id))
         tick = (game.get("clock") or {}).get("tick", 0)  # the tick this response belongs to, before any clock change
+        style = (game.get("settings") or {}).get("image_style")
         a.apply_ops(resp.get("state_changes"))
         game = ws.get("game", game_id)
+        if (game.get("settings") or {}).get("image_style") != style:  # the game's image style is immutable
+            game.setdefault("settings", {})
+            if style is None:
+                game["settings"].pop("image_style", None)
+            else:
+                game["settings"]["image_style"] = style
+            ws.touch("game", game_id)
         chars = ws.load_game_characters(game_id)
         by_id = {c["id"]: c for c in chars}
         for c in chars:
@@ -227,6 +236,7 @@ class Engine:
         a.apply_shared_digest(game, resp.get("shared_digest"), chars, tick)
         if mode == "resolve_tick":
             self._queue_illustrations(ws, game, resp.get("illustrations"), by_id, tick)
+        self._queue_portraits(ws, game, resp.get("portraits"), by_id, tick)
         entry = next((t for t in game.get("ticks", []) if t["n"] == tick), None)
         if entry is not None:
             entry.setdefault("dice_log", []).extend(resp.get("dice_log") or [])
@@ -338,35 +348,179 @@ class Engine:
             vis = [c for c in (it.get("visible_to") or []) if isinstance(c, str) and c in by_id]
             if not vis:
                 continue
+            subjects = [x[:60] for x in (it.get("subjects") or []) if isinstance(x, str)][:4]
             iid = short("img")
-            ws.put("image", iid, {"id": iid, "game_id": game["id"], "tick": tick, "prompt": it["prompt"].strip(), "caption": str(it.get("caption") or "")[:200],
-                                  "visible_to": sorted(set(vis)), "status": "pending", "attempts": 0, "created_at": iso(self.now()), "notified": []})
+            ws.put("image", iid, {"id": iid, "kind": "scene", "game_id": game["id"], "tick": tick, "prompt": it["prompt"].strip(), "caption": str(it.get("caption") or "")[:200],
+                                  "subjects": subjects, "visible_to": sorted(set(vis)), "status": "pending", "attempts": 0,
+                                  "created_at": iso(self.now()), "notified": []})
+
+    # -- portraits: a reference sheet (three 512 pictures nobody sees) and the 1024 portrait shared with the players
+    _STAGES = ("face", "body", "action")
+
+    def _portrait_rec(self, ws, game_id, subject_id):
+        return next((im for im in ws.find("image", game_id=game_id) if im.get("kind") == "portrait" and im.get("subject_id") == subject_id), None)
+
+    def _queue_portrait(self, ws, game, subject_type, subject_id, name, appearance, action, visible_to, tick):
+        if self._portrait_rec(ws, game["id"], subject_id):
+            return None
+        iid = short("img")
+        rec = {"id": iid, "kind": "portrait", "game_id": game["id"], "tick": tick, "subject_type": subject_type, "subject_id": subject_id,
+               "name": name[:80], "caption": name[:80], "appearance": appearance[:600], "action": (action or "going about their usual work")[:200],
+               "visible_to": sorted(set(visible_to)), "status": "pending", "stage": 0, "refs": {}, "attempts": 0, "created_at": iso(self.now()), "notified": []}
+        ws.put("image", iid, rec)
+        return rec
+
+    def _queue_character_portrait(self, ws, game, c):
+        pt = c.get("portrait") if isinstance(c.get("portrait"), dict) else {}
+        app = pt.get("appearance") or c.get("appearance") or ", ".join(str(x) for x in (c.get("concept"), c.get("occupation"), c.get("era_place")) if x)
+        act = pt.get("signature_action") or (f"working as {c['occupation']}" if c.get("occupation") else None)
+        return self._queue_portrait(ws, game, "character", c["id"], c.get("name") or c["id"], app or "an ordinary person", act, [c["id"]],
+                                    (game.get("clock") or {}).get("tick", 0))
+
+    def _queue_portraits(self, ws, game, raw, by_id, tick):
+        """The AI Master asks for an NPC's portrait the first time the NPC appears, and widens who may see a portrait as characters meet them.
+        Only the characters in visible_to can ever get it. Characters get their own portrait automatically (see _ensure_character_portraits)."""
+        if (game.get("settings") or {}).get("illustrations") != "on" or not self._images_available() or not isinstance(raw, list):
+            return
+        for it in raw[:config.PORTRAITS_PER_RESPONSE]:
+            if not isinstance(it, dict) or not isinstance(it.get("subject_id"), str) or not it["subject_id"].strip():
+                continue
+            sid = it["subject_id"].strip()[:60]
+            vis = [c for c in (it.get("visible_to") or []) if isinstance(c, str) and c in by_id]
+            if not vis:
+                continue
+            rec = self._portrait_rec(ws, game["id"], sid)
+            if rec is None:
+                name, app = it.get("name"), it.get("appearance")
+                if sid in by_id:
+                    rec = self._queue_character_portrait(ws, game, by_id[sid])
+                elif isinstance(name, str) and name.strip() and isinstance(app, str) and 10 <= len(app.strip()) <= 600:
+                    act = it.get("signature_action") if isinstance(it.get("signature_action"), str) else None
+                    rec = self._queue_portrait(ws, game, "npc", sid, name.strip(), app.strip(), act, vis, tick)
+                if rec is None:
+                    continue
+            rec["visible_to"] = sorted(set(rec["visible_to"]) | set(vis))
+            ws.touch("image", rec["id"])
+
+    def _ensure_character_portraits(self):
+        """Every confirmed character of a game with pictures on gets a portrait, whatever way it was made (and when pictures are turned on later)."""
+        if not self._images_available():
+            return
+        for g, _ in self.store.find("game"):
+            if (g.get("settings") or {}).get("illustrations") != "on":
+                continue
+            ws = self._ws()
+            game = ws.get("game", g["id"])
+            made = False
+            for c in ws.find("character", game_id=game["id"]):
+                if c.get("is_alive", True) and c.get("status") in ("active", "sidelined") and self._portrait_rec(ws, game["id"], c["id"]) is None:
+                    made = bool(self._queue_character_portrait(ws, game, c)) or made
+            if made:
+                ws.commit()
 
     def _new_illustrations(self, ws, player_id, chars, mark):
         out = []
         for c in chars:
             for im in ws.find("image", game_id=c["game_id"], status="ready"):
                 if c["id"] in im["visible_to"] and player_id not in im.get("notified", []):
-                    out.append({"game_id": c["game_id"], "character_id": c["id"], "image_id": im["id"], "tick": im["tick"], "caption": im.get("caption", "")})
+                    out.append({"game_id": c["game_id"], "character_id": c["id"], "image_id": im["id"], "kind": im.get("kind", "scene"), "tick": im["tick"],
+                                "caption": im.get("caption", "")})
                     if mark:
                         im.setdefault("notified", []).append(player_id)
                         ws.touch("image", im["id"])
         return out
 
+    def _prompt(self, game, body):
+        style = (game.get("settings") or {}).get("image_style") or config.IMAGE_STYLE
+        return (style.strip() + " " + body.strip())[:2048]
+
+    def _load_refs(self, paths):
+        out = []
+        for p in paths:
+            try:
+                out.append(self.images.storage.get(p))
+            except Exception:
+                return []
+        return out
+
+    def _scene_refs(self, ws, im):
+        """Up to four reference pictures of the people in the scene: face and body of one or two of them, or just faces of three or four."""
+        subs = []
+        for sid in im.get("subjects") or []:
+            p = self._portrait_rec(ws, im["game_id"], sid)
+            if p and p.get("refs") and set(p["refs"]) >= set(self._STAGES):
+                subs.append(p)
+        if not subs:
+            return [], ""
+        if len(subs) == 1:
+            keys = ["face", "body", "action"]
+        elif len(subs) == 2:
+            keys = ["face", "body"]
+        else:
+            keys = ["face"]
+        paths, notes = [], []
+        for p in subs[:4]:
+            for k in keys:
+                if len(paths) < 4:
+                    paths.append(p["refs"][k])
+                    notes.append(f"Image {len(paths) - 1} shows {p['name']} ({k}).")
+        return paths, " ".join(notes) + " Keep each of these people's face, build and clothes exactly as in their reference images."
+
+    def _image_step(self, ws, game, im, timeout):
+        """One generation call. A scene takes one; a portrait takes four (three reference pictures, then the shared portrait)."""
+        prov, st = self.images.provider, self.images.storage
+        gid = im["game_id"]
+        if im.get("kind", "scene") == "scene":
+            paths, note = self._scene_refs(ws, im)
+            refs = self._load_refs(paths) if paths else []
+            body = im["prompt"] + (" " + note if refs else "")
+            data, ctype = prov.generate(self._prompt(game, body), config.IMAGE_SIZE, config.IMAGE_SIZE, refs or None, timeout)
+            path = f"{gid}/{im['id']}.jpg"
+            st.put(path, data, ctype)
+            im.update({"status": "ready", "path": path, "bytes": len(data), "content_type": ctype, "ready_at": iso(self.now())})
+            return
+        who, app = im["name"], im["appearance"]
+        stage = im.get("stage", 0)
+        if stage < len(self._STAGES):
+            kind = self._STAGES[stage]
+            body = {"face": f"Close-up face portrait, head and shoulders, of {who}: {app}. Plain neutral background. No text, no letters, no caption.",
+                    "body": f"Full-body standing portrait of {who}: {app}. Head to feet visible, clothing and build clear. Plain neutral background. No text, no letters, no caption.",
+                    "action": f"{who}: {app}. Shown {im['action']}. Mid-action, the whole person visible. No text, no letters, no caption."}[kind]
+            data, ctype = prov.generate(self._prompt(game, body), config.IMAGE_REF_SIZE, config.IMAGE_REF_SIZE, None, timeout)
+            path = f"{gid}/ref/{im['subject_id']}_{kind}.jpg"
+            st.put(path, data, ctype)
+            im["refs"][kind] = path
+            im["stage"] = stage + 1
+            im["attempts"] = 0
+            return
+        refs = self._load_refs([im["refs"][k] for k in self._STAGES])
+        if not refs:
+            raise ImageError("the reference pictures could not be read")
+        body = (f"Dignified three-quarter portrait of {who}: {app}. Image 0 is their face, image 1 their full body and clothes, image 2 them in action: "
+                "the portrait must show exactly this same person, with the same face, build and clothes. Plain atmospheric background that fits the setting. "
+                "Leave the lower edge of the picture clear. No text, no letters, no caption.")
+        data, _ = prov.generate(self._prompt(game, body), config.IMAGE_SIZE, config.IMAGE_SIZE, refs, timeout)
+        data = overlay_name(data, who)
+        path = f"{gid}/{im['id']}.jpg"
+        st.put(path, data, "image/jpeg")
+        im.update({"status": "ready", "path": path, "bytes": len(data), "content_type": "image/jpeg", "ready_at": iso(self.now())})
+
     def process_images(self, limit=None, budget_seconds=None):
-        """Draws queued pictures (called after the scheduler resolves ticks, or by the host). Stops at the first quota limit, and when
-        there is not enough of the function's time left for another picture."""
+        """Draws queued pictures (called after the scheduler resolves ticks, or by the host). `limit` counts generation calls. Stops at the
+        first quota limit, and when there is not enough of the function's time left for another call. A portrait keeps its progress
+        between runs."""
         if not self._images_available():
             return {"processed": 0, "note": "illustrations are not set up"}
+        try:
+            self._ensure_character_portraits()
+        except Exception:
+            pass  # pictures must never get in the way of play
         limit = limit or config.IMAGES_PER_RUN
         deadline = None if budget_seconds is None else time.monotonic() + budget_seconds
-        done = failed = dropped = 0
-        rows = sorted(self.store.find("image", status="pending"), key=lambda r: r[0].get("created_at", ""))
+        done = failed = dropped = calls = 0
+        min_left = 12.0
+        rows = sorted(self.store.find("image", status="pending"), key=lambda r: (r[0].get("kind") != "portrait", r[0].get("created_at", "")))
         for rec, _ in rows[:limit * 3]:
-            if done + failed >= limit:
-                break
-            if deadline is not None and deadline - time.monotonic() < config.IMAGE_TIMEOUT_SECONDS + 5:
-                break
             ws = self._ws()
             im = ws.get("image", rec["id"])
             if self.now() - datetime.fromisoformat(im["created_at"].replace("Z", "+00:00")) > timedelta(days=config.IMAGE_PENDING_DAYS):
@@ -375,22 +529,38 @@ class Engine:
                 ws.commit()
                 dropped += 1
                 continue
-            if self.images.usage.reserve("image") != "ok":
-                break
-            try:
-                data, ctype = self.images.provider.generate((config.IMAGE_STYLE + " " + im["prompt"])[:2048])
-                path = f"{im['game_id']}/{im['id']}.jpg"
-                self.images.storage.put(path, data, ctype)
-                im.update({"status": "ready", "path": path, "bytes": len(data), "content_type": ctype, "ready_at": iso(self.now())})
-                done += 1
-            except Exception as e:
-                im["attempts"] = im.get("attempts", 0) + 1
-                im["last_error"] = f"{type(e).__name__}: {str(e)[:150]}"
-                if im["attempts"] >= config.IMAGE_MAX_ATTEMPTS:
-                    im["status"] = "failed"
-                    failed += 1
+            game = ws.get("game", im["game_id"])
+            if game is None or (game.get("settings") or {}).get("illustrations") != "on":
+                continue
+            stop = False
+            while im["status"] == "pending" and calls < limit:
+                left = None if deadline is None else deadline - time.monotonic()
+                if left is not None and left < min_left:
+                    stop = True
+                    break
+                if self.images.usage.reserve("image") != "ok":
+                    stop = True
+                    break
+                t0 = time.monotonic()
+                timeout = config.IMAGE_TIMEOUT_SECONDS if left is None else max(5, min(config.IMAGE_TIMEOUT_SECONDS, left - 3))
+                try:
+                    self._image_step(ws, game, im, timeout)
+                    if im["status"] == "ready":
+                        done += 1
+                except Exception as e:
+                    im["attempts"] = im.get("attempts", 0) + 1
+                    im["last_error"] = f"{type(e).__name__}: {str(e)[:150]}"
+                    if im["attempts"] >= config.IMAGE_MAX_ATTEMPTS:
+                        im["status"] = "failed"
+                        failed += 1
+                    calls += 1
+                    break
+                calls += 1
+                min_left = min(config.IMAGE_TIMEOUT_SECONDS + 5, max(8.0, 1.5 * (time.monotonic() - t0) + 4))
             ws.touch("image", im["id"])
             ws.commit()
+            if stop or calls >= limit:
+                break
         return {"generated": done, "failed": failed, "dropped": dropped}
 
     def set_game_options(self, player_id, game_id, illustrations=""):
@@ -405,9 +575,11 @@ class Engine:
             if illustrations == "on" and not self._images_available():
                 raise EngineError("illustrations are not available on this server")
             g["settings"]["illustrations"] = illustrations
+            if illustrations == "on" and not g["settings"].get("image_style"):
+                g["settings"]["image_style"] = config.IMAGE_STYLE  # written once; a game's style never changes afterwards
         ws.touch("game", game_id)
         ws.commit()
-        return {"game_id": game_id, "illustrations": g["settings"].get("illustrations", "off")}
+        return {"game_id": game_id, "illustrations": g["settings"].get("illustrations", "off"), "image_style": g["settings"].get("image_style")}
 
     def _my_character_ids(self, ws, player_id, game_id):
         return {c["id"] for c in ws.find("character", game_id=game_id, player_id=player_id)}
@@ -420,7 +592,8 @@ class Engine:
             raise EngineError("this player has no character in that game")
         rows = [im for im in ws.find("image", game_id=game_id) if set(im["visible_to"]) & mine and im["status"] in ("ready", "pending")]
         rows.sort(key=lambda im: (im["tick"], im["created_at"]))
-        return {"images": [{"image_id": im["id"], "tick": im["tick"], "caption": im.get("caption", ""), "status": im["status"]} for im in rows],
+        return {"images": [{"image_id": im["id"], "kind": im.get("kind", "scene"), "tick": im["tick"], "caption": im.get("caption", ""), "status": im["status"]}
+                           for im in rows],
                 "note": "Call get_image with an image_id to get a link. A picture still 'pending' is being drawn and is ready after the next tick run."}
 
     def get_image(self, player_id, game_id, image_id):
@@ -436,7 +609,7 @@ class Engine:
         if im["status"] != "ready" or not self.images:
             return {"image_id": image_id, "status": im["status"], "message": "This picture is not available."}
         ttl = config.IMAGE_URL_TTL_SECONDS
-        return {"image_id": image_id, "status": "ready", "tick": im["tick"], "caption": im.get("caption", ""),
+        return {"image_id": image_id, "status": "ready", "kind": im.get("kind", "scene"), "tick": im["tick"], "caption": im.get("caption", ""),
                 "url": self.images.storage.signed_url(im["path"], ttl), "expires_in_seconds": ttl,
                 "note": f"Show this as a link for the player to open in the browser. It stops working after {ttl // 60} minutes, "
                         "and the player can ask for the picture again at any time to get a new link. Do not post it anywhere shared."}
@@ -588,7 +761,7 @@ class Engine:
             raise EngineError(f"the adventure needs ruleset {adv.get('ruleset_id')}, which this server does not have")
         rec = adv.get("recommended") or {}
         s = {"tick_interval_hours": rec.get("tick_interval_hours", 24), "tick_span": rec.get("tick_span", "day"),
-             "early_close": None, "pace": "slow", "pvp": "soft", "visibility": "private", "illustrations": "off", "lethality": rec.get("lethality", "moderate"),
+             "early_close": None, "pace": "slow", "pvp": "soft", "visibility": "private", "illustrations": "off", "image_style": None, "lethality": rec.get("lethality", "moderate"),
              "tone_preset": None, "modules": [], "setup_deadline": iso(self.now() + timedelta(days=3)),
              "crisis": {"active": False, "tick_span": "beat", "tick_interval_hours": 24}}
         for k, v in (settings or {}).items():
@@ -779,7 +952,9 @@ class Engine:
             problems = tasks.validate_game(package, adv, self._images_available())
             if problems:
                 return reject(problems)
-            s = {k: package[k] for k in ("lethality", "tick_span", "tick_interval_hours", "pvp", "pace", "visibility", "illustrations") if package.get(k)}
+            s = {k: package[k] for k in ("lethality", "tick_span", "tick_interval_hours", "pvp", "pace", "visibility", "illustrations", "image_style") if package.get(k)}
+            if isinstance(s.get("image_style"), str):
+                s["image_style"] = s["image_style"].strip()
             out = self._create_game(player_id, params["adventure_id"], package.get("title") or params.get("title"),
                                     package.get("language") or params.get("language"), s, package.get("display_name") or params.get("display_name"))
             done({"game_id": out["game_id"]})
@@ -817,6 +992,9 @@ class Engine:
         sh = p["sheet"]
         c["sheet"] = {"groups": sh["groups"], "derived": sh.get("derived") or {}, "unrated": [x for x in sh.get("unrated", []) if isinstance(x, str)]}
         c["ruleset_state"] = p.get("ruleset_state") if isinstance(p.get("ruleset_state"), dict) else {}
+        pt = p.get("portrait")
+        if isinstance(pt, dict):
+            c["portrait"] = {"appearance": str(pt.get("appearance") or "")[:600], "signature_action": str(pt.get("signature_action") or "")[:200]}
         c["inventory"] = [{"id": f"it_{i + 1:02d}", "item": str(x.get("item"))[:120], "qty": x.get("qty", 1), "state": "carried",
                            "where": None, "notes": str(x.get("notes", ""))[:200], "source": "kit"}
                           for i, x in enumerate(p.get("inventory") or []) if isinstance(x, dict) and x.get("item")]

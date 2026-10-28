@@ -50,11 +50,12 @@ def _delete_game_records(engine, gid):
         n[kind] = len(rows)
     imgs = st.find("image", game_id=gid)
     for d, _ in imgs:
-        if d.get("path") and engine.images:
-            try:
-                engine.images.storage.delete(d["path"])
-            except Exception:
-                pass
+        for path in [d.get("path"), *(d.get("refs") or {}).values()]:
+            if path and engine.images:
+                try:
+                    engine.images.storage.delete(path)
+                except Exception:
+                    pass
         st.delete("image", d["id"])
     n["image"] = len(imgs)
     for kind in ("npc", "location"):

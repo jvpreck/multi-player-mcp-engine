@@ -22,21 +22,26 @@ GEMINI_THINKING_LEVEL_TICK = os.environ.get("GEMINI_THINKING_LEVEL_TICK", GEMINI
 GEMINI_LIMITS = {
     "tick": {"rpd": int(os.environ.get("GEMINI_TICK_RPD", "18")), "rpm": int(os.environ.get("GEMINI_TICK_RPM", "4"))},
     "light": {"rpd": int(os.environ.get("GEMINI_LIGHT_RPD", "450")), "rpm": int(os.environ.get("GEMINI_LIGHT_RPM", "9"))},
-    # images: Cloudflare gives 10,000 Neurons a day, about 170 images at 1024x1024 and 4 steps
-    "image": {"rpd": int(os.environ.get("IMAGE_RPD", "150")), "rpm": int(os.environ.get("IMAGE_RPM", "6"))},
+    # images: Cloudflare gives 10,000 Neurons a day. klein 4B costs about 26 per 512 output tile, 5 per input tile: a 1024 picture with
+    # references is about 120, a 512 reference about 26. Calls per day are kept low enough for a mix of both.
+    "image": {"rpd": int(os.environ.get("IMAGE_RPD", "80")), "rpm": int(os.environ.get("IMAGE_RPM", "10"))},
 }
 GEMINI_QUOTA_TZ = "America/Los_Angeles"  # provider quotas reset at midnight Pacific
 QUOTA_TZ = {"tick": GEMINI_QUOTA_TZ, "light": GEMINI_QUOTA_TZ, "image": "UTC"}  # Cloudflare's free allowance resets at 00:00 UTC
 
-# Illustrations (Cloudflare Workers AI, FLUX.1 schnell). Needs CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN; without them the option is unavailable.
-IMAGE_MODEL = os.environ.get("IMAGE_MODEL", "@cf/black-forest-labs/flux-1-schnell")
-IMAGE_STEPS = int(os.environ.get("IMAGE_STEPS", "4"))  # 1 to 8
+# Illustrations (Cloudflare Workers AI, FLUX.2 klein 4B, which accepts reference images). Needs CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN; without them the option is unavailable.
+IMAGE_MODEL = os.environ.get("IMAGE_MODEL", "@cf/black-forest-labs/flux-2-klein-4b")
+IMAGE_SIZE = int(os.environ.get("IMAGE_SIZE", "1024"))  # every picture shown to players
+IMAGE_REF_SIZE = int(os.environ.get("IMAGE_REF_SIZE", "512"))  # reference sheet images, and the largest input the model takes
+# Used only for a game that has illustrations on but no style of its own (each game normally gets one, immutable, when it is created).
 IMAGE_STYLE = os.environ.get("IMAGE_STYLE", "Atmospheric painterly illustration, muted colours, dramatic light, no text, no letters, no watermark.")
 IMAGE_BUCKET = os.environ.get("IMAGE_BUCKET", "gm-images")
 IMAGE_URL_TTL_SECONDS = int(os.environ.get("IMAGE_URL_TTL_SECONDS", "900"))
 IMAGES_PER_TICK = int(os.environ.get("IMAGES_PER_TICK", "2"))  # most the AI Master may ask for in one response
-IMAGES_PER_RUN = int(os.environ.get("IMAGES_PER_RUN", "3"))  # most generated per scheduler run, to stay inside the function time
+IMAGES_PER_RUN = int(os.environ.get("IMAGES_PER_RUN", "6"))  # generation calls, a portrait takes four  # most generated per scheduler run, to stay inside the function time
 IMAGE_MAX_ATTEMPTS = 2
+PORTRAITS_PER_RESPONSE = 3
+STYLE_MIN, STYLE_MAX = 40, 700
 IMAGE_TIMEOUT_SECONDS = 25
 FUNCTION_BUDGET_SECONDS = int(os.environ.get("FUNCTION_BUDGET_SECONDS", "50"))  # Vercel maxDuration is 60
 IMAGE_PENDING_DAYS = 3  # a picture not drawn after this long is dropped

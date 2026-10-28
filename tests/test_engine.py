@@ -111,6 +111,8 @@ def game_pkg(**kw):
     d = {"title": "Run", "language": "en", "display_name": "Jorge", "lethality": "moderate", "pace": "slow",
          "tick_interval_hours": 24, "tick_span": "day", "pvp": "soft"}
     d.update(kw)
+    if d.get("illustrations") == "on" and not d.get("image_style"):
+        d["image_style"] = "Gothic ink-and-watercolour illustration, Massachusetts 1925, damp fog, sodium-yellow lamplight, muted greens and browns."
     return d
 
 
@@ -119,7 +121,7 @@ def new_game(eng, player, adv=ADV, language=None, settings=None):
     out = eng.create_game(player, adv, language=language, settings=settings)
     pkg = out["package"]
     s = settings or {}
-    return eng.submit_package(player, pkg["task_id"], game_pkg(**{k: v for k, v in s.items() if k in ("lethality", "pvp", "pace", "tick_span", "tick_interval_hours", "visibility", "illustrations")}))
+    return eng.submit_package(player, pkg["task_id"], game_pkg(**{k: v for k, v in s.items() if k in ("lethality", "pvp", "pace", "tick_span", "tick_interval_hours", "visibility", "illustrations", "image_style")}))
 
 
 def char_pkg(name="Iris Calder", concept="a reporter", **kw):

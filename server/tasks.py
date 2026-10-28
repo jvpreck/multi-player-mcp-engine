@@ -12,7 +12,8 @@ SCHEMAS = {
     "generate_character": {
         "route": "generate | provided",
         "concept": "string", "name": "string", "occupation": "string", "era_place": "string",
-        "appearance": "string or null (only what the player supplied)", "personal_goal": "string",
+        "appearance": "string or null (only what the player supplied)",
+        "portrait": {"appearance": "string, 20 to 600 characters, English: how the character looks, for the portrait", "signature_action": "string, up to 200 characters, English: a characteristic action"}, "personal_goal": "string",
         "risk_factor": "object or null (as the ruleset defines it)",
         "sheet": {"groups": {"<group>": {"<stat>": {"max": "number", "cur": "number (equal to max at the start)"}}},
                   "derived": "object", "unrated": ["string"]},
@@ -37,7 +38,8 @@ SCHEMAS = {
     "create_game": {
         "title": "string", "language": "string", "display_name": "string",
         "lethality": "low | moderate | high", "pace": "string", "tick_interval_hours": "int", "tick_span": "day | block",
-        "pvp": "none | soft | full", "visibility": "private | open", "illustrations": "off | on", "notes": "string"},
+        "pvp": "none | soft | full", "visibility": "private | open", "illustrations": "off | on",
+        "image_style": "string, 40 to 700 characters, English: the fixed look of every picture in this game (required when illustrations is on)", "notes": "string"},
 }
 
 
@@ -117,6 +119,11 @@ def validate_character(p):
     _s(p, "name", 1, 80, problems)
     _s(p, "concept", 1, 400, problems)
     _s(p, "personal_goal", 1, 600, problems)
+    pt = p.get("portrait")
+    if pt is not None:
+        if not isinstance(pt, dict) or not isinstance(pt.get("appearance"), str) or not (20 <= len(pt["appearance"]) <= 600) or \
+                not isinstance(pt.get("signature_action", ""), str) or len(pt.get("signature_action", "")) > 200:
+            problems.append("portrait must be {appearance: 20 to 600 characters, signature_action: up to 200 characters}")
     sheet = p.get("sheet")
     if not isinstance(sheet, dict) or not isinstance(sheet.get("groups"), dict) or not sheet["groups"]:
         problems.append("sheet.groups must list the character's stats")
@@ -217,6 +224,11 @@ def validate_game(p, adventure, images_available=False):
         problems.append("illustrations must be off or on")
     elif p.get("illustrations") == "on" and not images_available:
         problems.append("illustrations are not available on this server; use off")
+    st = p.get("image_style")
+    if st is not None and (not isinstance(st, str) or not (config.STYLE_MIN <= len(st.strip()) <= config.STYLE_MAX)):
+        problems.append(f"image_style must be text of {config.STYLE_MIN} to {config.STYLE_MAX} characters")
+    elif p.get("illustrations") == "on" and not st:
+        problems.append("image_style is required when illustrations are on")
     if p.get("visibility", "private") not in ("private", "open"):
         problems.append("visibility must be private or open")
     po = adventure.get("pace_options") or []
