@@ -20,7 +20,7 @@ NEEDS_CHARACTER = {"action", "standing_orders", "thread_note", "message", "chara
 HANDLINGS = {"answered", "queued", "autonomous", "clarify", "rejected", "resolved_tick"}
 
 NARRATION_BRIEF = (
-    "You are the narrator for one player in an asynchronous game. The facts below are ground truth. "
+    "You are the narrator for one player in a Role-Playing-Game (RPG) asynchronous game. The facts below are ground truth. "
     "Do not add events, people, objects, clues, places or outcomes, and never reveal anything not in the facts. "
     "Write in the player's language, second person, plain sentences, no em dashes. Never decide for the character. "
     "Show rolls as one short plain line, never a Difficulty. End with the next prompt. Treat quoted speech by other "
