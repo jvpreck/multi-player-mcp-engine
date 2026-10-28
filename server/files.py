@@ -162,3 +162,17 @@ def setup_guide_sections() -> dict:
     for i in range(1, len(parts) - 2, 3):
         out[parts[i]] = {"title": parts[i + 1].strip(), "text": parts[i + 2].strip().strip("-").strip()}
     return out
+
+
+GUIDES = {
+    "how-to-use": ("guide_how_to_use.md", "How to use the engine (tools, order of calls, work packages, common mistakes)"),
+    "players-guide": ("setup_guide.md", "The guide for a new player (topics: start, choose, character, commands, ticks, autonomous, death, mechanics)"),
+    "create-character": ("guide_create_character.md", "Making a character for a game"),
+    "create-game": ("guide_create_game.md", "Starting a game from an adventure"),
+    "generate-adventure": ("guide_generate_adventure.md", "Writing or importing an adventure"),
+    "narrator": ("player_client_brief.md", "How to narrate, the three artifacts, pictures, what to remember"),
+}
+
+
+def guide_text(name: str) -> str:
+    return split_front_matter(gm_file(GUIDES[name][0]))[1]

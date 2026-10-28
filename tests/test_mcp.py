@@ -3,7 +3,7 @@ import json
 
 from server.app import build_mcp, client_instructions
 
-EXPECTED = {"register_player", "get_setup_guide", "list_games", "list_adventures", "generate_adventure", "create_game", "join_game", "generate_character", "submit_action",
+EXPECTED = {"register_player", "get_setup_guide", "start_here", "get_guide", "list_games", "list_adventures", "generate_adventure", "create_game", "join_game", "generate_character", "submit_action",
             "get_results", "get_character", "get_rules", "save_story_summary", "submit_package", "list_images", "get_image", "set_game_options"}
 
 
@@ -43,16 +43,21 @@ def test_tool_call_reaches_engine():
     assert d.calls[0][1][:3] == ("p_p", "g", "action")
 
 
-def test_client_instructions_mention_artifacts():
+def test_client_instructions_send_the_model_to_start_here():
     t = client_instructions()
-    assert "Character state" in t and "Knowledge and plans" in t and "The story so far" in t
-    assert "server data is the truth" in t.lower()
+    assert "start_here" in t and "get_guide" in t and "player_key" in t and len(t.split()) < 200
+    from server import files
+    n = files.guide_text("narrator")
+    assert "Character state" in n and "Knowledge and plans" in n and "The story so far" in n
+    assert "server data is the truth" in n.lower()
 
 
 def test_new_player_tools_need_no_key_only_where_intended():
     mcp = build_mcp(Dummy())
     tools = {t.name: t for t in asyncio.run(mcp.list_tools())}
-    assert "player_key" not in tools["get_setup_guide"].inputSchema.get("required", [])
+    for n in ("get_setup_guide", "start_here", "get_guide"):
+        assert "player_key" not in tools[n].inputSchema.get("required", [])
+    assert "CALL THIS FIRST" in tools["start_here"].description
     assert "player_key" not in tools["register_player"].inputSchema.get("required", [])
     for n in ("list_games", "join_game", "create_game", "submit_action", "get_results"):
         assert "player_key" in tools[n].inputSchema["required"], n

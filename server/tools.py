@@ -1,10 +1,25 @@
 """MCP tools. Players use these, identified by their secret player key (see register_player).
 There are no administrator tools here: resolve_tick and the host commands live behind /internal/* (see app.py and admin.py)."""
 import functools
+import json
+
+from mcp.server.fastmcp import Image
 
 from .engine import Engine, EngineError
 from .db import Conflict
 from .files import AdventureSourceError
+
+
+def _next_step(msg):
+    m = msg.lower()
+    if "player key" in m:
+        return ("If the player has a key, ask them for it and use it. If they are new, call start_here, then register_player. "
+                "Never invent a key and never register a second time without asking the player.")
+    if "no character" in m or "character" in m and "confirm" in m:
+        return "The player needs a confirmed character in this game: call get_guide('create-character')."
+    if "unknown guide" in m or "unknown topic" in m:
+        return "Call get_guide with no name to list the guides."
+    return "If you are unsure how to use the engine, call start_here, or get_guide('how-to-use')."
 
 
 def _safe(fn):
@@ -13,7 +28,7 @@ def _safe(fn):
         try:
             return fn(*a, **kw)
         except EngineError as e:
-            return {"error": str(e)}
+            return {"error": str(e), "next_step": _next_step(str(e))}
         except AdventureSourceError as e:
             return {"error": f"The supplied adventures cannot be read right now ({e}). Try again later."}
         except Conflict:
@@ -31,9 +46,24 @@ def register(mcp, engine: Engine):
 
     @mcp.tool()
     @_safe
+    def start_here() -> dict:
+        """CALL THIS FIRST, before any other tool, in every new conversation. Needs no key. Returns what this engine is, what you are
+        supposed to do, which tool to call for what the player wants, and the list of guides (get_guide)."""
+        return engine.start_here()
+
+    @mcp.tool()
+    @_safe
+    def get_guide(name: str = "", topic: str = "") -> dict:
+        """Read a guide. Needs no key. name is one of: how-to-use (how to use the engine and its tools), players-guide (how to play, for
+        the player; topic can be start, choose, character, commands, ticks, autonomous, death or mechanics), create-character,
+        create-game, generate-adventure, narrator (how to narrate and what to remember). With no name it lists the guides."""
+        return engine.guide(name, topic)
+
+    @mcp.tool()
+    @_safe
     def get_setup_guide(topic: str = "") -> dict:
-        """The guide for a new player. Needs no key. topic is empty for the whole guide, or one of: start, choose, character, commands,
-        ticks, autonomous, death, mechanics. Relay it in the player's language and show only what was asked."""
+        """The guide for a new player (same as get_guide with name players-guide). Needs no key. topic is empty for the whole guide, or one of:
+        start, choose, character, commands, ticks, autonomous, death, mechanics. Relay it in the player's language and show only what was asked."""
         return engine.setup_guide(topic)
 
     @mcp.tool()
@@ -125,10 +155,17 @@ def register(mcp, engine: Engine):
 
     @mcp.tool()
     @_safe
-    def get_image(player_key: str, game_id: str, image_id: str) -> dict:
-        """A fresh short-lived link to one picture. Call it again whenever the player wants to see an old picture. Give the link to the
-        player to open in the browser. It expires after a few minutes. Never post it anywhere shared."""
-        return engine.get_image(engine.authenticate(player_key), game_id, image_id)
+    def get_image(player_key: str, game_id: str, image_id: str, inline: bool = False):
+        """One picture of the story. By default returns a fresh short-lived link to give the player (it expires after a few minutes; call
+        again for a new one). If your client can display images returned by a tool, pass inline=true to get the picture itself, shown with
+        its caption instead of a link. If the player sees nothing, use the link. Never post a link anywhere shared."""
+        pid = engine.authenticate(player_key)
+        if not inline:
+            return engine.get_image(pid, game_id, image_id)
+        info, data = engine.get_image_data(pid, game_id, image_id)
+        if data is None:
+            return info
+        return [json.dumps(info, ensure_ascii=False), Image(data=data, format="jpeg")]
 
     @mcp.tool()
     @_safe

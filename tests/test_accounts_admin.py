@@ -158,3 +158,33 @@ def test_player_safe_text_is_part_a_only():
     assert files.player_safe_part(body) == "# PART A: SHEET\nsafe"
     assert files.player_safe_part("no markers at all") == ""
     assert files.player_safe_part("# PART B\nx\n# PART A\ny") == ""
+
+
+def test_start_here_and_every_guide_exist_and_name_real_tools(world):
+    import asyncio
+    from server import files
+    from server.app import build_mcp
+    eng = world[0]
+    sh = eng.start_here()
+    assert "register_player" in sh["start_here"] and {g["name"] for g in sh["guides"]} == set(files.GUIDES)
+    tool_names = {t.name for t in asyncio.run(build_mcp(eng).list_tools())}
+    import re
+    for name in files.GUIDES:
+        g = eng.guide(name)
+        text = g.get("guide") or ""
+        assert text and g.get("name", "players-guide") in (name, "players-guide") or name == "players-guide"
+        for tool in set(re.findall(r"`([a-z_]+)\(", sh["start_here"] + text)):
+            assert tool in tool_names, (name, tool)
+    assert eng.guide("")["guides"] and "free-text" not in eng.guide("how-to-use")["guide"]
+    assert "player key" in eng.guide("players-guide", "start")["guide"].lower()
+    with pytest.raises(EngineError):
+        eng.guide("nope")
+
+
+def test_errors_say_what_to_do_next():
+    import asyncio
+    from server.app import build_mcp
+    eng = Engine(MemoryStore(), None)
+    out = asyncio.run(build_mcp(eng).call_tool("get_results", {"player_key": "pk_bad"}))
+    text = json.dumps(out, default=str)
+    assert "next_step" in text and "start_here" in text

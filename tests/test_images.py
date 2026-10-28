@@ -355,3 +355,32 @@ def test_name_overlay_handles_accents_and_long_names():
     for name in ("Íñigo de Mendoza y Ñúñez", "A" * 90):
         out = Image.open(io.BytesIO(overlay_name(buf.getvalue(), name)))
         assert out.size == (1024, 1024) and out.getpixel((10, 1020)) != (200, 200, 200)
+
+
+def test_get_image_inline_returns_the_picture_itself(world):
+    import asyncio, io, base64
+    from PIL import Image
+    from server.app import build_mcp
+    eng, store, prov, storage, clock = world
+    gid, cid = start(eng, "p_a")
+    eng.resolve_tick(gid)
+    iid = scenes(store, gid)[0]["id"]
+    eng.authenticate = lambda key: "p_a"
+    mcp = build_mcp(eng)
+    pending = asyncio.run(mcp.call_tool("get_image", {"player_key": "k", "game_id": gid, "image_id": iid, "inline": True}))
+    assert "pending" in json.dumps(pending, default=str)                         # nothing to attach yet
+    eng.process_images(limit=10)
+    out = asyncio.run(mcp.call_tool("get_image", {"player_key": "k", "game_id": gid, "image_id": iid, "inline": True}))
+    blocks = out[0] if isinstance(out, tuple) else out
+    kinds = [b.type for b in blocks]
+    assert kinds == ["text", "image"]
+    img = next(b for b in blocks if b.type == "image")
+    assert img.mimeType == "image/jpeg"
+    assert max(Image.open(io.BytesIO(base64.b64decode(img.data))).size) == config.IMAGE_INLINE_SIZE
+    assert "The road to the hill" in blocks[0].text and "url" not in blocks[0].text
+    link = asyncio.run(mcp.call_tool("get_image", {"player_key": "k", "game_id": gid, "image_id": iid}))
+    assert "expires_in_seconds" in json.dumps(link, default=str)
+    # still private: another player cannot get it inline either
+    eng.authenticate = lambda key: "p_z"
+    bad = asyncio.run(mcp.call_tool("get_image", {"player_key": "k", "game_id": gid, "image_id": iid, "inline": True}))
+    assert "error" in json.dumps(bad, default=str)

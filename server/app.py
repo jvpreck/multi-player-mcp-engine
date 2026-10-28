@@ -28,7 +28,7 @@ def build_engine():
 
 
 def client_instructions() -> str:
-    return files.split_front_matter(files.gm_file("player_client_brief.md"))[1]
+    return files.split_front_matter(files.gm_file("mcp_instructions.md"))[1]
 
 
 def build_mcp(engine):

@@ -36,6 +36,7 @@ IMAGE_REF_SIZE = int(os.environ.get("IMAGE_REF_SIZE", "512"))  # reference sheet
 # Used only for a game that has illustrations on but no style of its own (each game normally gets one, immutable, when it is created).
 IMAGE_STYLE = os.environ.get("IMAGE_STYLE", "Atmospheric painterly illustration, muted colours, dramatic light, no text, no letters, no watermark.")
 IMAGE_BUCKET = os.environ.get("IMAGE_BUCKET", "gm-images")
+IMAGE_INLINE_SIZE = int(os.environ.get("IMAGE_INLINE_SIZE", "768"))  # longest side of a picture returned inline in a tool result
 IMAGE_URL_TTL_SECONDS = int(os.environ.get("IMAGE_URL_TTL_SECONDS", "900"))
 IMAGES_PER_TICK = int(os.environ.get("IMAGES_PER_TICK", "2"))  # most the AI Master may ask for in one response
 IMAGES_PER_RUN = int(os.environ.get("IMAGES_PER_RUN", "6"))  # generation calls, a portrait takes four  # most generated per scheduler run, to stay inside the function time

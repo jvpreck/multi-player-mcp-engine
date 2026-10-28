@@ -13,7 +13,7 @@ from . import config, files, prompt, redact, tasks
 from .db import Conflict, Workspace, state_key
 from .dice import make_dice
 from .gm import GMBusy, GMError, parse
-from .images import ImageError, overlay_name
+from .images import ImageError, fit_max, overlay_name
 
 PLAYER_KINDS = {"setup_answers", "character_submission", "character_confirm", "action", "standing_orders",
                 "thread_note", "message", "decision", "free_query", "pause", "resume", "say"}
@@ -596,14 +596,18 @@ class Engine:
                            for im in rows],
                 "note": "Call get_image with an image_id to get a link. A picture still 'pending' is being drawn and is ready after the next tick run."}
 
-    def get_image(self, player_id, game_id, image_id):
-        """A fresh short-lived link to a picture one of the player's characters could see. Can be asked again for any old picture."""
+    def _visible_image(self, player_id, game_id, image_id):
         ws = self._ws()
         self._game(ws, game_id)
         im = ws.get("image", image_id)
         mine = self._my_character_ids(ws, player_id, game_id)
         if im is None or im["game_id"] != game_id or not (set(im["visible_to"]) & mine):
             raise EngineError("unknown image")
+        return im
+
+    def get_image(self, player_id, game_id, image_id):
+        """A fresh short-lived link to a picture one of the player's characters could see. Can be asked again for any old picture."""
+        im = self._visible_image(player_id, game_id, image_id)
         if im["status"] == "pending":
             return {"image_id": image_id, "status": "pending", "message": "This picture is still being drawn. Try again after the next tick run."}
         if im["status"] != "ready" or not self.images:
@@ -612,7 +616,21 @@ class Engine:
         return {"image_id": image_id, "status": "ready", "kind": im.get("kind", "scene"), "tick": im["tick"], "caption": im.get("caption", ""),
                 "url": self.images.storage.signed_url(im["path"], ttl), "expires_in_seconds": ttl,
                 "note": f"Show this as a link for the player to open in the browser. It stops working after {ttl // 60} minutes, "
-                        "and the player can ask for the picture again at any time to get a new link. Do not post it anywhere shared."}
+                        "and the player can ask for the picture again at any time to get a new link. Do not post it anywhere shared. "
+                        "If your client can display images, call get_image again with inline=true to show the picture itself."}
+
+    def get_image_data(self, player_id, game_id, image_id):
+        """The picture itself (a JPEG, reduced for chat) for clients that can display images returned by a tool. Returns (info, bytes);
+        bytes is None when the picture is not ready, and info then says why."""
+        im = self._visible_image(player_id, game_id, image_id)
+        if im["status"] != "ready" or not self.images:
+            return self.get_image(player_id, game_id, image_id), None
+        try:
+            data = fit_max(self.images.storage.get(im["path"]), config.IMAGE_INLINE_SIZE)
+        except Exception:
+            raise EngineError("this picture could not be read right now; try again, or ask for the link version") from None
+        return {"image_id": image_id, "status": "ready", "kind": im.get("kind", "scene"), "tick": im["tick"], "caption": im.get("caption", ""),
+                "note": "The picture is attached to this result. Show it with its caption. Do not post it anywhere shared."}, data
 
     @staticmethod
     def _client_item(i):
@@ -661,6 +679,21 @@ class Engine:
         if row is None or self.store.get("player", row["player_id"])[0] is None:
             raise EngineError("unknown player key. A new player must call register_player first")
         return row["player_id"]
+
+    def start_here(self):
+        return {"start_here": files.split_front_matter(files.gm_file("start_here.md"))[1],
+                "guides": [{"name": k, "about": v[1]} for k, v in files.GUIDES.items()],
+                "note": "Follow the table in start_here. Relay guides to the player in their language, short and friendly; the guides marked for you are for you."}
+
+    def guide(self, name="", topic=""):
+        n = (name or "").strip().lower()
+        if not n:
+            return {"guides": [{"name": k, "about": v[1]} for k, v in files.GUIDES.items()], "note": "Call get_guide with one of these names."}
+        if n not in files.GUIDES:
+            raise EngineError("unknown guide. Guides: " + ", ".join(files.GUIDES))
+        if n == "players-guide":
+            return self.setup_guide(topic)
+        return {"name": n, "about": files.GUIDES[n][1], "guide": files.guide_text(n)}
 
     def setup_guide(self, topic=""):
         secs = files.setup_guide_sections()

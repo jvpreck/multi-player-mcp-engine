@@ -50,6 +50,18 @@ def fit_square(data, size, quality=90):
     return buf.getvalue()
 
 
+def fit_max(data, size, quality=82):
+    """Reduces an image so its longest side is at most `size` (for pictures sent inline in a chat), as a JPEG."""
+    from PIL import Image
+    im = Image.open(io.BytesIO(data)).convert("RGB")
+    if max(im.size) > size:
+        r = size / max(im.size)
+        im = im.resize((max(1, round(im.size[0] * r)), max(1, round(im.size[1] * r))), Image.LANCZOS)
+    buf = io.BytesIO()
+    im.save(buf, "JPEG", quality=quality)
+    return buf.getvalue()
+
+
 def overlay_name(data, name, quality=90):
     """Writes the name on a band at the bottom of the picture. Done here because image models cannot spell reliably."""
     from PIL import Image, ImageDraw, ImageFont

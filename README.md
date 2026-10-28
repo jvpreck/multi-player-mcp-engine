@@ -47,6 +47,8 @@ To add a ruleset, drop a markdown file with front matter into `rulesets/`. To ad
 
 | Tool | Purpose |
 |---|---|
+| `start_here` | The first call in any new chat, no key needed: what the engine is, what to call for what, the list of guides |
+| `get_guide` | Guides, no key needed: `how-to-use`, `players-guide`, `create-character`, `create-game`, `generate-adventure`, `narrator` |
 | `get_setup_guide` | The guide for a new player (how to start, choose a game, make a character, commands, ticks and collaboration, autonomous actions, death, other mechanics). Needs no key |
 | `register_player` | Creates a player and returns their **secret player key**, once |
 | `list_games` | The player's games and the open games with free seats |
@@ -137,3 +139,12 @@ pytest tests
 - **Cross-record writes are not one database transaction.** The server validates everything in memory and saves with optimistic version checks, so a rejected AI response changes nothing, but a crash in the middle of saving could leave records out of step.
 - **Vercel limits.** `maxDuration` is 60 seconds. A tick with many characters and a large thinking budget may need more (Pro plan).
 - **The AI Master is an LLM.** The server enforces structure, ownership of fields, dice, and the lethality guard, but the AI's judgement on secrecy and fairness is not machine-checked. A lite model on a long, rule-dense JSON task is unbenchmarked here, so the models can be changed with `GEMINI_MODEL_TICK` and `GEMINI_MODEL_LIGHT`. The model names `gemini-3.8-flash` and the `medium` thinking level on it were taken from your description and have not been tested against the live API.
+
+
+## First contact with a client
+
+When a client connects, the MCP handshake carries short `instructions` (`gm/mcp_instructions.md`, under 200 words): call `start_here` first, keep the secret key, the server is the truth, work packages go back with `submit_package`. Clients differ in how much they use that field, so the same guidance is also in the tool list: `start_here` is described as "CALL THIS FIRST", and every error from a tool carries a `next_step` that points back to `start_here` or the right guide. The guides are Markdown files in `gm/` (see `gm/README.md`) that you can edit without changing code.
+
+## Pictures in other clients
+
+`get_image` returns a short-lived link by default. With `inline=true` it returns the picture itself as an MCP image block (a JPEG reduced to `IMAGE_INLINE_SIZE`, default 768 px, with the caption as text), for clients that display images returned by tools. The client brief tells the model to use `inline=true` when its client can show images and to fall back to the link if the player sees nothing. Access rules are identical for both.
