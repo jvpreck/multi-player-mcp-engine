@@ -12,6 +12,8 @@ These files are adventure- and ruleset-independent. The server builds the AI Mas
 | `mcp_instructions.md` | Player's Claude | The short text the server sends when a client connects (MCP `instructions`): call `start_here` first |
 | `start_here.md` | Player's Claude | Returned by `start_here`: orientation, the table of what to call for what, the always-apply rules |
 | `guide_player_client.md`, `guide_create_character.md`, `guide_create_game.md`, `guide_generate_adventure.md` | Player's Claude | Returned by `get_guide` (`player-client-guide`, `create-character`, `create-game`, `generate-adventure`). `setup_guide.md` is `players-guide`, `player_client_brief.md` is `narrator` and `mcp_instructions.md` is `mcp-guide` |
+| `ruleset_contract.md` | Player's Claude and server | The ruleset file contract: front matter, required sections, rules for the text. The server validates imported rulesets against it |
+| `guide_import_ruleset.md` | Player's Claude | Returned by `get_guide` (`import-ruleset`) |
 | `client_tasks.md` | Player's Claude | Step-by-step work packages: generate a character, generate an adventure, create a game. The server serves them to the client, which does the work locally and sends the result back with `submit_package` |
 
 Prompt assembly order: protocol, oracles, state contract, the ruleset (`../rulesets/`), then the adventure (read from the private repository `jvpreck/rpg_adventures`, never from this one). The client brief and the client tasks are not sent to Gemini. The server sends `mcp_instructions.md` as MCP `instructions` when a client connects, the other client files through `start_here` and `get_guide`, and the tasks as work packages.

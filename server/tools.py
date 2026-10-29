@@ -56,7 +56,7 @@ def register(mcp, engine: Engine):
     def get_guide(name: str = "", topic: str = "") -> dict:
         """Read a guide. Needs no key. name is one of: player-client-guide (how to use the engine and its tools), players-guide (how to play, for
         the player; topic can be start, choose, character, commands, ticks, autonomous, death or mechanics), create-character,
-        create-game, generate-adventure, narrator (how to narrate and what to remember), mcp-guide (the short connection instructions). With no name it lists the guides."""
+        create-game, generate-adventure, narrator (how to narrate and what to remember), mcp-guide (the short connection instructions), import-ruleset (convert a game system from a document). With no name it lists the guides."""
         return engine.guide(name, topic)
 
     @mcp.tool()
@@ -89,6 +89,14 @@ def register(mcp, engine: Engine):
 
     @mcp.tool()
     @_safe
+    def import_ruleset(player_key: str, document_text: str, ruleset_id: str = "", language: str = "en") -> dict:
+        """Convert a game system from a document the player provides (pasted text of the rules) into a ruleset for this engine. Returns a
+        work package: follow its steps in the chat, then send the result with submit_package. The new ruleset is stored as pending and
+        can be used only after the host approves it. Call get_guide with name import-ruleset first."""
+        return engine.import_ruleset(engine.authenticate(player_key), document_text, ruleset_id, language)
+
+    @mcp.tool()
+    @_safe
     def create_game(player_key: str, adventure_id: str, title: str = "", language: str = "", display_name: str = "",
                     lethality: str = "", tick_interval_hours: int = 0, tick_span: str = "", pvp: str = "", visibility: str = "") -> dict:
         """Start a new game run from an adventure. Returns a work package that collects the settings (lethality low, moderate or high,
@@ -118,7 +126,7 @@ def register(mcp, engine: Engine):
     @mcp.tool()
     @_safe
     def submit_package(player_key: str, task_id: str, package: dict) -> dict:
-        """Send back the finished work package for generate_adventure, create_game or generate_character. If accepted is false, fix the
+        """Send back the finished work package for generate_adventure, create_game, generate_character or import_ruleset. If accepted is false, fix the
         listed problems and submit again with the same task_id."""
         return engine.submit_package(engine.authenticate(player_key), task_id, package)
 
@@ -176,7 +184,7 @@ def register(mcp, engine: Engine):
     @mcp.tool()
     @_safe
     def get_rules(ruleset_id: str) -> dict:
-        """Read the text of a ruleset."""
+        """Read the text of an available ruleset (ids are in list_adventures under rulesets)."""
         return engine.get_rules(ruleset_id)
 
     @mcp.tool()

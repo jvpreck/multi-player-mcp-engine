@@ -48,6 +48,7 @@ To add a ruleset, drop a markdown file with front matter into `rulesets/`. To ad
 | Tool | Purpose |
 |---|---|
 | `start_here` | The first call in any new chat, no key needed: what the engine is, what to call for what, the list of guides |
+| `import_ruleset` | Convert a game system from a document the player provides into a ruleset (a work package). It waits for the host's approval |
 | `get_guide` | Guides, no key needed: `player-client-guide`, `players-guide`, `create-character`, `create-game`, `generate-adventure`, `narrator`, `mcp-guide` |
 | `get_setup_guide` | The guide for a new player (how to start, choose a game, make a character, commands, ticks and collaboration, autonomous actions, death, other mechanics). Needs no key |
 | `register_player` | Creates a player and returns their **secret player key**, once |
@@ -148,3 +149,7 @@ When a client connects, the MCP handshake carries short `instructions` (`gm/mcp_
 ## Pictures in other clients
 
 `get_image` returns a short-lived link by default. With `inline=true` it returns the picture itself as an MCP image block (a JPEG reduced to `IMAGE_INLINE_SIZE`, default 768 px, with the caption as text), for clients that display images returned by tools. The client brief tells the model to use `inline=true` when its client can show images and to fall back to the link if the player sees nothing. Access rules are identical for both.
+
+## Rulesets
+
+Rulesets are markdown files in `rulesets/` (see `rulesets/README.md` and the contract `gm/ruleset_contract.md`). A player can also import one from a document with `import_ruleset`; it is stored in `gm_rulesets` as pending and usable only after the host approves it with the admin commands `approve_ruleset`, `reject_ruleset` or `delete_ruleset` (`list_rulesets` and `review_ruleset` show what is waiting). Run `supabase/schema.sql` again (it is idempotent) to create the `gm_rulesets` table.

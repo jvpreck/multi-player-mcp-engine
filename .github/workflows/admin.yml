@@ -4,6 +4,7 @@
 #   SERVER_URL    the base URL of the deployed server, e.g. https://your-app.vercel.app  (no trailing slash)
 #   ADMIN_SECRET  the same value as the server's ADMIN_SECRET environment variable
 # This repository is public, so the output of a run can be read by anyone. Only commands whose output is harmless are offered here.
+# approve_ruleset, reject_ruleset and delete_ruleset are here; list_rulesets and review_ruleset (they show player ids) are not.
 # The listing commands (they show game ids), get_game (it shows secrets) and reset_player_key (it returns a key) must be run from your
 # own computer with curl (see the README).
 name: admin
@@ -14,7 +15,7 @@ on:
         description: Admin command
         required: true
         type: choice
-        options: [delete_game, close_game, delete_adventure, delete_player, purge_tasks]
+        options: [delete_game, close_game, delete_adventure, delete_player, purge_tasks, approve_ruleset, reject_ruleset, delete_ruleset]
       args:
         description: 'Arguments as JSON, e.g. {"game_id": "g_1234abcd"}'
         required: false

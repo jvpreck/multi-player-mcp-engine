@@ -21,6 +21,11 @@ COMMANDS = {
     "reset_player_key": "player_id: issues a new secret key (shown once) when a player lost theirs or it leaked",
     "gm_usage": "no arguments: AI Master requests used today per model, and the limits",
     "generate_images": "no arguments: draws the queued pictures now (the scheduler also does it after each run)",
+    "list_rulesets": "no arguments: imported rulesets with status pending, approved or rejected",
+    "review_ruleset": "ruleset_id: what a pending ruleset contains (fields, headings, checklist rows, suspicious wording flags), not the full text",
+    "approve_ruleset": "ruleset_id: makes an imported ruleset available to everyone",
+    "reject_ruleset": "ruleset_id [reason]: keeps it but never makes it available",
+    "delete_ruleset": "ruleset_id [force]: removes an imported ruleset; refused while adventures or games use it unless force is true",
     "purge_tasks": "no arguments: removes expired, finished and failed work packages",
 }
 
@@ -205,3 +210,58 @@ def _cmd_gm_usage(engine, args):
 
 def _cmd_generate_images(engine, args):
     return engine.process_images()
+
+
+def _ruleset(engine, args):
+    rid = _need(args, "ruleset_id")
+    r, _ = engine.store.get("ruleset", rid)
+    if r is None:
+        raise EngineError("that ruleset is not an imported one. Rulesets in the rulesets/ folder are files: edit or delete them in the repository")
+    return rid, r
+
+
+def _cmd_list_rulesets(engine, args):
+    return {"rulesets": [{"id": d["id"], "title": d["meta"].get("title"), "status": d["status"], "owner_player_id": d.get("owner_player_id"),
+                          "chars": len(d["body"]), "created_at": d.get("created_at")} for d, _ in engine.store.find("ruleset")]}
+
+
+def _cmd_review_ruleset(engine, args):
+    from . import tasks
+    rid, r = _ruleset(engine, args)
+    problems, info = tasks.ruleset_checks(r["meta"], r["body"])
+    return {"id": rid, "status": r["status"], "meta": r["meta"], "source_notes": r.get("source_notes"), "notes": r.get("notes"),
+            "checks": info, "problems": problems, "note": "Read the full text in the gm_rulesets table (Supabase) before approving."}
+
+
+def _cmd_approve_ruleset(engine, args):
+    rid, r = _ruleset(engine, args)
+    if rid in __import__("server.files", fromlist=["rulesets"]).rulesets():
+        raise EngineError("a ruleset file with that id exists; it would take precedence. Reject or delete this one")
+    ws = engine._ws()
+    d = ws.get("ruleset", rid)
+    d["status"] = "approved"
+    d["approved_at"] = iso(engine.now())
+    ws.touch("ruleset", rid)
+    ws.commit()
+    return {"approved": rid}
+
+
+def _cmd_reject_ruleset(engine, args):
+    rid, r = _ruleset(engine, args)
+    ws = engine._ws()
+    d = ws.get("ruleset", rid)
+    d["status"] = "rejected"
+    d["reject_reason"] = str(args.get("reason") or "")[:300]
+    ws.touch("ruleset", rid)
+    ws.commit()
+    return {"rejected": rid}
+
+
+def _cmd_delete_ruleset(engine, args):
+    rid, r = _ruleset(engine, args)
+    using = [g["id"] for g, _ in engine.store.find("game") if g.get("ruleset_id") == rid]
+    using += [a["id"] for a, _ in engine.store.find("adventure") if a.get("ruleset_id") == rid]
+    if using and not args.get("force"):
+        raise EngineError(f"games or adventures still use this ruleset: {using}. Delete them first or pass force")
+    engine.store.delete("ruleset", rid)
+    return {"deleted": rid, "still_referencing": using}

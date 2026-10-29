@@ -102,6 +102,8 @@ def index_for(kind, doc):
         return {"player_id": doc["player_id"], "status": doc.get("status")}
     if kind == "image":
         return {"game_id": doc["game_id"], "status": doc.get("status")}
+    if kind == "ruleset":
+        return {"status": doc.get("status")}
     if kind == "key":
         return {"player_id": doc.get("player_id")}
     return {}

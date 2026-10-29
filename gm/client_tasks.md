@@ -85,3 +85,21 @@ Steps:
    - **Image style** (`image_style`, required when illustrations are `on`; write it in any case). One paragraph in English, 40 to 700 characters, that fixes the look of every picture in this game: the art medium and technique, the era and year, the place or city, the ambience and weather, the lighting, the colour palette, the mood. Build it from the adventure's era, place and tone (Part A and the ruleset only, never secrets). Example: "Gothic ink-and-watercolour illustration, Massachusetts 1925, damp fog, sodium-yellow lamplight, muted greens and browns, quiet dread." It must not name real artists, brands, known artworks or characters, and must ask for no readable text. **It can never be changed after the game is created**, so show it to the host and let them adjust it before you submit.
 3. **Submit** with `submit_package`: `title`, `language`, `display_name`, `lethality`, `pace`, `tick_interval_hours`, `tick_span`, `pvp`, `visibility`, `illustrations`, `image_style`, `notes`.
 4. **When the server answers,** give the player the `game_id`, show the setup questions the server returns, and carry on with character creation (`generate_character`).
+
+## TASK: import_ruleset
+
+Goal: convert a game system, given as a document by the player, into the engine's ruleset format, so the host can approve it and adventures and games can use it.
+
+Context you receive: `contract_text` (the ruleset file contract: front matter, required sections, rules for the text), `outline` (the section headings of the reference ruleset, as a model), `document_text` (the player's source), `suggested_id` (or null), `existing_ids` (ids already taken), `language`, and `limits`.
+
+Steps:
+
+1. **Read the contract completely** and look at the outline. The finished ruleset must follow the front matter and cover every required section.
+2. **Check the source.** Is it a game system with mechanics (character creation, a way to resolve actions, health and death)? If it is only setting or story, tell the player it cannot be a ruleset and stop. Ask the player, in one batch: whether they have the right to use this document, the id and display title they want (propose an id that is not in `existing_ids`), how many players it should support, the language of the ruleset text, and anything they want left out or ruled differently. Do not continue without their answer on the right to use it.
+3. **Plan before you write.** List for yourself the stats, the roll mechanic, the damage and death rules, the character budgets, the NPC tiers and what has no equivalent in the source. Decide the **dead condition** and how lethality (low, moderate, high) applies. Fill every gap with the smallest reasonable ruling and mark it **[House]**.
+4. **Write the body in stages,** section by section, in your own words (paraphrase, never copy long passages). Number sections and rules. Include the validation checklist table with at least 5 checkable rows, and the sheet layout. Leave out setting lore, licensed creature stat blocks and example adventures, and say so in the opening note.
+5. **Self-check against the contract:** every required section is present; every checklist row is checkable from a sheet; every stat appears in the sheet layout; the dead condition is explicit; the numbers are consistent; nothing addresses the AI or the protocol; the size is within limits.
+6. **Show the player a short summary** (the title, the dice, the stats, how a test works, how death works, the **[House]** rulings, what was left out) and ask whether anything should change. Make the changes and re-check.
+7. **Submit** with `submit_package`: `id`, `title`, `system`, `version`, `players`, `dice`, `language`, `summary`, `modules`, `tone_presets`, `body` (the whole markdown body, without the front matter), `source_notes` (`{document_title, rights_confirmed, omitted, house_rulings}`), `notes`.
+8. **When the server answers:** if rejected, fix exactly the listed problems and submit again. If accepted, tell the player the ruleset is **waiting for the host's approval**, that it cannot be used until the host approves it, and that they will see it in `list_adventures` under `rulesets` when it is approved.
+

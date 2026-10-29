@@ -18,7 +18,7 @@
 | Tool | When |
 |---|---|
 | `start_here` | The very first call in any new chat: what the engine is and what to call for what (no key needed). |
-| `get_guide` | Guides: `player-client-guide`, `players-guide`, `create-character`, `create-game`, `generate-adventure`, `narrator`, `mcp-guide` (no key needed). |
+| `get_guide` | Guides: `player-client-guide`, `players-guide`, `create-character`, `create-game`, `generate-adventure`, `import-ruleset`, `narrator`, `mcp-guide` (no key needed). |
 | `get_setup_guide` | Same as `get_guide("players-guide")`. A new player, or any question about how the game works (`topic`: start, choose, character, commands, ticks, autonomous, death, mechanics; no key needed). |
 | `register_player` | The player has no key yet. Returns the secret `player_key` once. |
 | `list_games` | The player wants to see their games and the open games they can join. |
@@ -27,6 +27,7 @@
 | `create_game` | The player starts a game from an adventure. Returns a work package (§3). |
 | `join_game` | The player joins a game by id. |
 | `generate_character` | The player wants a new character. `generate` and `provided` return a work package (§3). `pregen` and `from_npc` act at once. |
+| `import_ruleset` | The player has a game system document and wants to play it. Returns a work package; the ruleset waits for the host's approval. |
 | `submit_package` | Send back a finished work package. |
 | `submit_action` | Anything the player does or says that the server must handle: an action, setup answers, standing orders, a decision, a message, speech to a character, a free query. |
 | `get_results` | Collect results that have not been delivered yet. Call it at the start of every session and whenever the player asks "what happened". |

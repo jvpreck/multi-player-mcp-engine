@@ -83,3 +83,9 @@ create table if not exists gm_images (
   game_id text not null, status text, updated_at timestamptz not null default now());
 alter table gm_images enable row level security;
 insert into storage.buckets (id, name, public) values ('gm-images', 'gm-images', false) on conflict (id) do nothing;
+
+-- Imported rulesets. A player's client converts a document into the ruleset format; it stays 'pending' until the host approves it.
+create table if not exists gm_rulesets (
+  id text primary key, data jsonb not null, version int not null default 1,
+  status text, updated_at timestamptz not null default now());
+alter table gm_rulesets enable row level security;

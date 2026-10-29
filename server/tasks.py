@@ -24,6 +24,13 @@ SCHEMAS = {
         "language": "string", "settings": {"safety": {"lines": [], "veils": [], "fears": [], "pvp_optout": "bool"},
                                            "standing_orders": "object"},
         "traceability": [{"original": "string", "result": "string", "note": "string"}], "notes": "string"},
+    "import_ruleset": {
+        "id": "string: lowercase letters, digits, underscores, 3 to 40, not in existing_ids", "title": "string", "system": "string", "version": "int",
+        "players": {"min": "int", "max": "int"}, "dice": "string", "language": "string", "summary": "string",
+        "modules": ["string"], "tone_presets": ["string"],
+        "body": "string: the whole ruleset in markdown, without front matter, following contract_text",
+        "source_notes": {"document_title": "string", "rights_confirmed": "true (the player may use the document)", "omitted": "string", "house_rulings": ["string"]},
+        "notes": "string"},
     "generate_adventure": {
         "title": "string", "generation": "full | emergent | supplied", "era": "string", "place": "string",
         "players": {"min": "int", "max": "int"},
@@ -63,10 +70,10 @@ def build_package(kind, task_id, expires_at, context):
 
 
 # ------------------------------------------------------------------ contexts
-def character_context(game, adventure, route, provided_sheet, replaces, other_names, pregenerated):
+def character_context(game, adventure, route, provided_sheet, replaces, other_names, pregenerated, rulesets=None):
     safe = files.player_safe_part(prompt.adventure_text(adventure))
     return {
-        "route": route, "ruleset_id": game["ruleset_id"], "ruleset_text": prompt.ruleset_text(game["ruleset_id"]),
+        "route": route, "ruleset_id": game["ruleset_id"], "ruleset_text": prompt.ruleset_text(game["ruleset_id"], rulesets),
         "adventure": {"id": adventure["id"], "title": adventure.get("title"), "era": adventure.get("era"),
                       "summary": adventure.get("summary"), "player_safe_text": safe,
                       "pregenerated_ids": pregenerated},
@@ -78,12 +85,19 @@ def character_context(game, adventure, route, provided_sheet, replaces, other_na
     }
 
 
-def adventure_context(ruleset_id, seed_text, document_text, generation, language):
-    return {"ruleset_id": ruleset_id, "ruleset_text": prompt.ruleset_text(ruleset_id),
+def adventure_context(ruleset_id, seed_text, document_text, generation, language, rulesets=None):
+    rs = files.rulesets() if rulesets is None else rulesets
+    return {"ruleset_id": ruleset_id, "ruleset_text": prompt.ruleset_text(ruleset_id, rs),
             "oracles_text": files.split_front_matter(files.gm_file("oracles.md"))[1],
             "dice": make_dice(60, 30, 30), "seed_text": seed_text or None, "document_text": document_text or None,
             "generation": "import" if document_text else generation, "language": language,
-            "available_rulesets": [{"id": k, "title": v["meta"].get("title")} for k, v in files.rulesets().items()]}
+            "available_rulesets": [{"id": k, "title": v["meta"].get("title")} for k, v in rs.items()]}
+
+
+def ruleset_context(document_text, suggested_id, existing_ids, language):
+    return {"contract_text": files.ruleset_contract_text(), "outline": files.ruleset_outline(), "document_text": document_text,
+            "suggested_id": suggested_id or None, "existing_ids": sorted(existing_ids), "language": language,
+            "limits": {"body_chars": [config.RULESET_BODY_MIN, config.RULESET_BODY_MAX]}}
 
 
 def game_context(adventure, defaults, images_available=False):
@@ -237,4 +251,80 @@ def validate_game(p, adventure, images_available=False):
     for k in ("title", "language", "display_name"):
         if p.get(k) is not None and (not isinstance(p[k], str) or len(p[k]) > 120):
             problems.append(f"{k} must be text of at most 120 characters")
+    return problems
+
+
+# ---------------------------------------------------------------- rulesets
+RULESET_ID = re.compile(r"^[a-z][a-z0-9_]{2,39}$")
+_REQUIRED_HEADINGS = [("core concept", r"core concept"), ("characters", r"character"), ("abilities", r"abilit|\bstats?\b|attribute|skill"),
+                      ("core mechanics", r"mechanics"), ("solo and party play", r"solo|party"), ("npc statistics", r"\bnpc"), ("sheet layout", r"sheet")]
+_SUSPICIOUS = [r"ignore (all |any |the )?(previous|prior|above|earlier)", r"disregard .{0,40}(instruction|rule|protocol)", r"system prompt",
+               r"you are now\b", r"reveal .{0,40}(secret|truth|adventure)", r"override .{0,30}(protocol|secrecy|secrets)", r"<\|",
+               r"forget (all |your |the )?(instruction|rule)", r"do not (follow|obey) the (protocol|instruction)"]
+
+
+def ruleset_checks(meta, body):
+    """Structural checks shared by import validation and the host's review. Returns (problems, info)."""
+    problems = []
+    heads = [h.strip().lower() for h in re.findall(r"^#{2,3}\s+(.+)$", body, flags=re.M)]
+    joined = "\n".join(heads)
+    for name, rx in _REQUIRED_HEADINGS:
+        if not re.search(rx, joined):
+            problems.append(f"the body needs a section for '{name}' (a ## heading containing that word)")
+    rows = 0
+    m = re.search(r"^\|\s*#\s*\|\s*Check\s*\|\s*Passes when[^\n]*\n\|[-| :]+\n((?:\|\s*\d+\s*\|[^\n]*\n?)+)", body, flags=re.M | re.I)
+    if m:
+        rows = len(m.group(1).strip().splitlines())
+    if rows < 5:
+        problems.append("the character validation checklist must be a table headed '| # | Check | Passes when |' with at least 5 numbered rows")
+    low = body.lower()
+    for k in ("pass_with_adjustments", "fail"):
+        if k not in low:
+            problems.append(f"the validation outcomes must name {k}")
+    if not re.search(r"\bdead\b|\bdeath\b|\bdies\b", low) or "lethality" not in low:
+        problems.append("the rules must state when a character is dead and how lethality (low, moderate, high) applies, or that it does not")
+    if "groups" not in low or "ruleset_state" not in low:
+        problems.append("the sheet layout must describe sheet.groups and ruleset_state")
+    flags = [rx for rx in _SUSPICIOUS if re.search(rx, low)]
+    if flags:
+        problems.append("the text contains wording that addresses the AI or tries to change its instructions; remove it")
+    return problems, {"headings": [h for h in heads], "checklist_rows": rows, "suspicious_patterns": len(flags), "chars": len(body)}
+
+
+def validate_ruleset(p, existing_ids):
+    problems = []
+    if not isinstance(p, dict):
+        return ["the package must be an object"]
+    if len(json.dumps(p, ensure_ascii=False)) > config.RULESET_BODY_MAX + 20_000:
+        return ["the package is too large"]
+    rid = p.get("id")
+    if not isinstance(rid, str) or not RULESET_ID.match(rid):
+        problems.append("id must be lowercase letters, digits and underscores, 3 to 40 characters, starting with a letter")
+    elif rid in existing_ids:
+        problems.append(f"the id {rid} is already taken; choose another")
+    for k, hi in (("title", 120), ("system", 120), ("dice", 40), ("language", 20), ("summary", 600)):
+        if not isinstance(p.get(k), str) or not (1 <= len(p[k].strip()) <= hi):
+            problems.append(f"{k} must be text of 1 to {hi} characters")
+    if not isinstance(p.get("version"), int) or isinstance(p.get("version"), bool) or p["version"] < 1:
+        problems.append("version must be an integer of at least 1")
+    pl = p.get("players")
+    if not (isinstance(pl, dict) and all(isinstance(pl.get(k), int) and not isinstance(pl.get(k), bool) for k in ("min", "max")) and 1 <= pl["min"] <= pl["max"] <= 12):
+        problems.append("players must be {min, max}, integers with 1 <= min <= max <= 12")
+    for k in ("modules", "tone_presets"):
+        v = p.get(k, [])
+        if not isinstance(v, list) or len(v) > 20 or any(not isinstance(x, str) or not re.match(r"^[a-z0-9_]{1,40}$", x) for x in v):
+            problems.append(f"{k} must be a list of at most 20 slugs (lowercase letters, digits, underscores)")
+    sn = p.get("source_notes")
+    if not isinstance(sn, dict) or sn.get("rights_confirmed") is not True:
+        problems.append("source_notes.rights_confirmed must be true: the player must confirm they may use the document")
+    body = p.get("body")
+    if not isinstance(body, str):
+        problems.append("body must be the whole ruleset as markdown text")
+    elif not (config.RULESET_BODY_MIN <= len(body) <= config.RULESET_BODY_MAX):
+        problems.append(f"body must be {config.RULESET_BODY_MIN} to {config.RULESET_BODY_MAX} characters (it has {len(body)})")
+    elif body.lstrip().startswith("---"):
+        problems.append("body must not contain the front matter; give the fields separately")
+    else:
+        more, _ = ruleset_checks(p, body)
+        problems += more
     return problems

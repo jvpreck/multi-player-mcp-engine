@@ -164,9 +164,20 @@ def setup_guide_sections() -> dict:
     return out
 
 
+def ruleset_contract_text() -> str:
+    return split_front_matter(gm_file("ruleset_contract.md"))[1]
+
+
+def ruleset_outline(ruleset_id="fear_itself") -> list:
+    """The section headings of a reference ruleset, as a model for a conversion."""
+    rs = rulesets().get(ruleset_id)
+    return re.findall(r"^#{2,3} .+$", rs["body"], flags=re.M) if rs else []
+
+
 GUIDES = {
     "player-client-guide": ("guide_player_client.md", "How to use the engine (tools, order of calls, work packages, common mistakes)"),
     "players-guide": ("setup_guide.md", "The guide for a new player (topics: start, choose, character, commands, ticks, autonomous, death, mechanics)"),
+    "import-ruleset": ("guide_import_ruleset.md", "Converting a game system from a document into a ruleset (host approves it)"),
     "create-character": ("guide_create_character.md", "Making a character for a game"),
     "create-game": ("guide_create_game.md", "Starting a game from an adventure"),
     "generate-adventure": ("guide_generate_adventure.md", "Writing or importing an adventure"),

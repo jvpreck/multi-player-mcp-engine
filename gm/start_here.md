@@ -22,6 +22,7 @@ title: Start here
 | start a new game | `get_guide("create-game")`, then `create_game` |
 | make a character | `get_guide("create-character")`, then `generate_character` |
 | write a new adventure from an idea or a document | `get_guide("generate-adventure")`, then `generate_adventure` |
+| play a game system the server does not have, from a document | `get_guide("import-ruleset")`, then `import_ruleset` (the host must approve it) |
 | do something in a game, or ask what happened | `get_results` first, then `submit_action` |
 | see a picture of the story | `list_images`, `get_image` (see the `narrator` guide) |
 
@@ -52,5 +53,6 @@ title: Start here
 | `create-character` | You: making a character for a game |
 | `create-game` | You: starting a game from an adventure |
 | `generate-adventure` | You: writing or importing an adventure |
+| `import-ruleset` | You: converting a game system from a document into a ruleset |
 | `narrator` | You: how to narrate, the three artifacts, pictures, what to remember |
 | `mcp-guide` | You: the short instructions the server sends when a client connects |

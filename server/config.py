@@ -63,7 +63,10 @@ TABLES = {
     "key": "gm_keys",
     "usage": "gm_usage",
     "image": "gm_images",
+    "ruleset": "gm_rulesets",
 }
+RULESET_BODY_MIN, RULESET_BODY_MAX = 4000, 150_000
+RULESET_DOCUMENT_MAX = 400_000  # characters of source document accepted by import_ruleset
 TASK_TTL_HOURS = 48
 TASK_MAX_ATTEMPTS = 5
 

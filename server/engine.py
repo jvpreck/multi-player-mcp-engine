@@ -152,7 +152,7 @@ class Engine:
         }
         if game["phase"] in ("setup", "characters"):
             env["available_adventures"] = self.adventure_catalog(None)
-            env["available_rulesets"] = [{"id": k, "title": v["meta"].get("title")} for k, v in files.rulesets().items()]
+            env["available_rulesets"] = [{"id": k, "title": v["meta"].get("title")} for k, v in self.rulesets().items()]
         if previous_errors:
             env["previous_errors"] = previous_errors
         return env
@@ -161,7 +161,7 @@ class Engine:
     def _run(self, ws, game_id, mode, request, requester_cid=None, post=None, store_in_tick=False):
         game = self._game(ws, game_id)
         adventure = self._adventure(ws, game["adventure_id"])
-        system = prompt.system_prompt(game["ruleset_id"], adventure)
+        system = prompt.system_prompt(game["ruleset_id"], adventure, self.rulesets())
         # the strong model closes ticks and checks character sheets; the light one handles single-player requests
         tier = "tick" if mode == "resolve_tick" or (request or {}).get("kind") == "character_submission" else "light"
         tick0 = (game.get("clock") or {}).get("tick")
@@ -763,14 +763,52 @@ class Engine:
         extra = {"warning": "The supplied adventures could not be read right now (" + self.adventure_source_error + "). Try again later."} \
             if self.adventure_source_error else {}
         return {"adventures": cat, **extra,
-                "rulesets": [{"id": k, "title": v["meta"].get("title"), "summary": v["meta"].get("summary")} for k, v in files.rulesets().items()]}
+                "rulesets": [{"id": k, "title": v["meta"].get("title"), "summary": v["meta"].get("summary")} for k, v in self.rulesets().items()],
+                "your_imported_rulesets": [{"id": d["id"], "title": d["meta"].get("title"), "status": d["status"]}
+                                          for d, _ in self.store.find("ruleset") if d.get("owner_player_id") == player_id and d["status"] != "approved"]}
+
+    # ---- rulesets: files in rulesets/ plus the imported ones the host has approved
+    def rulesets(self):
+        out = dict(files.rulesets())
+        for d, _ in self.store.find("ruleset", status="approved"):
+            if d["id"] not in out:
+                out[d["id"]] = {"meta": d["meta"], "body": d["body"], "path": f"db:{d['id']}"}
+        return out
 
     def get_rules(self, ruleset_id):
-        return {"ruleset_id": ruleset_id, "text": prompt.ruleset_text(ruleset_id)}
+        try:
+            return {"ruleset_id": ruleset_id, "text": prompt.ruleset_text(ruleset_id, self.rulesets())}
+        except KeyError:
+            raise EngineError("unknown ruleset. list_adventures shows the available ones") from None
+
+    def import_ruleset(self, player_id, document_text, ruleset_id="", language="en"):
+        if not isinstance(document_text, str) or len(document_text.strip()) < 500:
+            raise EngineError("give the text of the document (at least a few paragraphs of rules)")
+        if len(document_text) > config.RULESET_DOCUMENT_MAX:
+            raise EngineError(f"the document is too long ({len(document_text)} characters, at most {config.RULESET_DOCUMENT_MAX}). Give the mechanics chapters only")
+        if ruleset_id and not tasks.RULESET_ID.match(ruleset_id):
+            raise EngineError("ruleset_id must be lowercase letters, digits and underscores, 3 to 40 characters")
+        return self.start_task(player_id, "import_ruleset", {"document_text": document_text, "ruleset_id": ruleset_id, "language": language})
+
+    def _all_ruleset_ids(self):
+        return set(files.rulesets()) | {d["id"] for d, _ in self.store.find("ruleset")}
+
+    def _store_ruleset(self, player_id, p):
+        ws = self._ws()
+        if ws.get("ruleset", p["id"]) is not None or p["id"] in files.rulesets():
+            raise EngineError("that ruleset id was just taken; choose another")
+        meta = {k: p[k] for k in ("id", "title", "system", "version", "players", "dice", "language", "summary")}
+        meta["modules"] = p.get("modules") or []
+        meta["tone_presets"] = p.get("tone_presets") or []
+        rec = {"id": p["id"], "meta": meta, "body": p["body"], "status": "pending", "source": "imported", "owner_player_id": player_id,
+               "source_notes": p.get("source_notes"), "notes": str(p.get("notes") or "")[:1000], "created_at": iso(self.now())}
+        ws.put("ruleset", p["id"], rec)
+        ws.commit()
+        return rec
 
     # ---- generate_adventure (a work package for the client)
     def generate_adventure(self, player_id, ruleset_id, seed_text="", document_text="", generation="emergent", language="en"):
-        if ruleset_id not in files.rulesets():
+        if ruleset_id not in self.rulesets():
             raise EngineError(f"unknown ruleset {ruleset_id}")
         if not (seed_text or document_text):
             raise EngineError("give a seed or a document")
@@ -790,7 +828,7 @@ class Engine:
         ws = self._ws()
         p = self._player(ws, player_id, display_name, language)
         adv = self._adventure(ws, adventure_id)
-        if adv.get("ruleset_id") not in files.rulesets():
+        if adv.get("ruleset_id") not in self.rulesets():
             raise EngineError(f"the adventure needs ruleset {adv.get('ruleset_id')}, which this server does not have")
         rec = adv.get("recommended") or {}
         s = {"tick_interval_hours": rec.get("tick_interval_hours", 24), "tick_span": rec.get("tick_span", "day"),
@@ -900,10 +938,13 @@ class Engine:
         expires = iso(self.now() + timedelta(hours=config.TASK_TTL_HOURS))
         tid = short("t")
         if kind == "generate_adventure":
-            ctx = tasks.adventure_context(params["ruleset_id"], params["seed_text"], params["document_text"], params["generation"], params["language"])
+            ctx = tasks.adventure_context(params["ruleset_id"], params["seed_text"], params["document_text"], params["generation"], params["language"], self.rulesets())
+        elif kind == "import_ruleset":
+            ctx = tasks.ruleset_context(params["document_text"], params.get("ruleset_id"), self._all_ruleset_ids(), params.get("language") or "en")
+            params = dict(params, document_text=f"<{len(params['document_text'])} characters, not stored>")
         elif kind == "create_game":
             adv = self._adventure(ws, params["adventure_id"])
-            if adv.get("ruleset_id") not in files.rulesets():
+            if adv.get("ruleset_id") not in self.rulesets():
                 raise EngineError(f"the adventure needs ruleset {adv.get('ruleset_id')}, which this server does not have")
             rec = adv.get("recommended") or {}
             defaults = {"title": params.get("title") or adv.get("title"), "language": params.get("language") or "en",
@@ -928,7 +969,7 @@ class Engine:
                             "how_it_ended": (old.get("death") or {}).get("summary")}
             others = [c.get("name") for c in ws.load_game_characters(game["id"]) if c["player_id"] != player_id and c.get("name")]
             ctx = tasks.character_context(game, adv, params["route"], params.get("sheet_text"), replaces, others,
-                                          adv.get("pregenerated", []))
+                                          adv.get("pregenerated", []), self.rulesets())
         else:
             raise EngineError(f"unknown task {kind}")
         rec_ = {"id": tid, "player_id": player_id, "kind": kind, "status": "open", "params": params, "attempts": 0,
@@ -973,8 +1014,17 @@ class Engine:
             ws2.touch("task", task_id)
             ws2.commit()
 
+        if kind == "import_ruleset":
+            problems = tasks.validate_ruleset(package, self._all_ruleset_ids())
+            if problems:
+                return reject(problems)
+            rec = self._store_ruleset(player_id, package)
+            done({"ruleset_id": rec["id"], "status": "pending"})
+            return {"accepted": True, "task_id": task_id, "ruleset_id": rec["id"], "status": "pending",
+                    "message": "The ruleset is stored and waiting for the host's approval. It cannot be used in an adventure or a game until the host approves it. "
+                               "Tell the player. Once approved it appears in list_adventures under rulesets."}
         if kind == "generate_adventure":
-            problems = tasks.validate_adventure(package, set(files.rulesets()))
+            problems = tasks.validate_adventure(package, set(self.rulesets()))
             if problems:
                 return reject(problems)
             out = self._store_adventure(player_id, params["ruleset_id"], package)

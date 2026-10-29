@@ -22,8 +22,8 @@ def _static():
     return "\n\n=====\n\n".join(parts)
 
 
-def ruleset_text(ruleset_id: str) -> str:
-    rs = files.rulesets().get(ruleset_id)
+def ruleset_text(ruleset_id: str, rulesets=None) -> str:
+    rs = (files.rulesets() if rulesets is None else rulesets).get(ruleset_id)
     if not rs:
         raise KeyError(f"unknown ruleset {ruleset_id}")
     return rs["body"]
@@ -41,8 +41,8 @@ def adventure_text(adventure: dict) -> str:
     return text
 
 
-def system_prompt(ruleset_id: str, adventure: dict | None) -> str:
-    parts = [_static(), "# DOCUMENT 4: THE RULESET\n\n" + ruleset_text(ruleset_id)]
+def system_prompt(ruleset_id: str, adventure: dict | None, rulesets=None) -> str:
+    parts = [_static(), "# DOCUMENT 4: THE RULESET\n\n" + ruleset_text(ruleset_id, rulesets)]
     if adventure:
         head = "# DOCUMENT 5: THE ADVENTURE\n\n"
         if adventure.get("source") != "file":
