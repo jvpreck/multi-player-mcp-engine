@@ -165,11 +165,12 @@ def setup_guide_sections() -> dict:
 
 
 GUIDES = {
-    "how-to-use": ("guide_how_to_use.md", "How to use the engine (tools, order of calls, work packages, common mistakes)"),
+    "player-client-guide": ("guide_player_client.md", "How to use the engine (tools, order of calls, work packages, common mistakes)"),
     "players-guide": ("setup_guide.md", "The guide for a new player (topics: start, choose, character, commands, ticks, autonomous, death, mechanics)"),
     "create-character": ("guide_create_character.md", "Making a character for a game"),
     "create-game": ("guide_create_game.md", "Starting a game from an adventure"),
     "generate-adventure": ("guide_generate_adventure.md", "Writing or importing an adventure"),
+    "mcp-guide": ("mcp_instructions.md", "The short instructions the server sends when a client connects"),
     "narrator": ("player_client_brief.md", "How to narrate, the three artifacts, pictures, what to remember"),
 }
 

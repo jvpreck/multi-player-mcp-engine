@@ -19,7 +19,7 @@ def _next_step(msg):
         return "The player needs a confirmed character in this game: call get_guide('create-character')."
     if "unknown guide" in m or "unknown topic" in m:
         return "Call get_guide with no name to list the guides."
-    return "If you are unsure how to use the engine, call start_here, or get_guide('how-to-use')."
+    return "If you are unsure how to use the engine, call start_here, or get_guide('player-client-guide')."
 
 
 def _safe(fn):
@@ -54,9 +54,9 @@ def register(mcp, engine: Engine):
     @mcp.tool()
     @_safe
     def get_guide(name: str = "", topic: str = "") -> dict:
-        """Read a guide. Needs no key. name is one of: how-to-use (how to use the engine and its tools), players-guide (how to play, for
+        """Read a guide. Needs no key. name is one of: player-client-guide (how to use the engine and its tools), players-guide (how to play, for
         the player; topic can be start, choose, character, commands, ticks, autonomous, death or mechanics), create-character,
-        create-game, generate-adventure, narrator (how to narrate and what to remember). With no name it lists the guides."""
+        create-game, generate-adventure, narrator (how to narrate and what to remember), mcp-guide (the short connection instructions). With no name it lists the guides."""
         return engine.guide(name, topic)
 
     @mcp.tool()

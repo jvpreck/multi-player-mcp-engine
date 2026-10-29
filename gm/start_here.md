@@ -25,7 +25,7 @@ title: Start here
 | do something in a game, or ask what happened | `get_results` first, then `submit_action` |
 | see a picture of the story | `list_images`, `get_image` (see the `narrator` guide) |
 
-3. **If you are unsure how to use the engine,** call `get_guide("how-to-use")`. It explains the tools, the work-package loop and the usual mistakes.
+3. **If you are unsure how to use the engine,** call `get_guide("player-client-guide")`. It explains the tools, the work-package loop and the usual mistakes.
 
 ## A new player
 
@@ -47,9 +47,10 @@ title: Start here
 
 | Name | For |
 |---|---|
-| `how-to-use` | You: tools, order of calls, work packages, common mistakes |
+| `player-client-guide` | You: tools, order of calls, work packages, common mistakes |
 | `players-guide` | The player: how to play (topics: start, choose, character, commands, ticks, autonomous, death, mechanics) |
 | `create-character` | You: making a character for a game |
 | `create-game` | You: starting a game from an adventure |
 | `generate-adventure` | You: writing or importing an adventure |
 | `narrator` | You: how to narrate, the three artifacts, pictures, what to remember |
+| `mcp-guide` | You: the short instructions the server sends when a client connects |

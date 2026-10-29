@@ -18,7 +18,7 @@
 | Tool | When |
 |---|---|
 | `start_here` | The very first call in any new chat: what the engine is and what to call for what (no key needed). |
-| `get_guide` | Guides: `how-to-use`, `players-guide`, `create-character`, `create-game`, `generate-adventure`, `narrator` (no key needed). |
+| `get_guide` | Guides: `player-client-guide`, `players-guide`, `create-character`, `create-game`, `generate-adventure`, `narrator`, `mcp-guide` (no key needed). |
 | `get_setup_guide` | Same as `get_guide("players-guide")`. A new player, or any question about how the game works (`topic`: start, choose, character, commands, ticks, autonomous, death, mechanics; no key needed). |
 | `register_player` | The player has no key yet. Returns the secret `player_key` once. |
 | `list_games` | The player wants to see their games and the open games they can join. |

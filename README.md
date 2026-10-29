@@ -48,7 +48,7 @@ To add a ruleset, drop a markdown file with front matter into `rulesets/`. To ad
 | Tool | Purpose |
 |---|---|
 | `start_here` | The first call in any new chat, no key needed: what the engine is, what to call for what, the list of guides |
-| `get_guide` | Guides, no key needed: `how-to-use`, `players-guide`, `create-character`, `create-game`, `generate-adventure`, `narrator` |
+| `get_guide` | Guides, no key needed: `player-client-guide`, `players-guide`, `create-character`, `create-game`, `generate-adventure`, `narrator`, `mcp-guide` |
 | `get_setup_guide` | The guide for a new player (how to start, choose a game, make a character, commands, ticks and collaboration, autonomous actions, death, other mechanics). Needs no key |
 | `register_player` | Creates a player and returns their **secret player key**, once |
 | `list_games` | The player's games and the open games with free seats |

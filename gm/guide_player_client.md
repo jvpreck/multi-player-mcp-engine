@@ -1,6 +1,6 @@
 ---
-id: guide_how_to_use
-title: How to use the engine
+id: guide_player_client
+title: Player client guide, how to use the engine
 ---
 # How to use the engine (for you, the player's Claude or other assistant)
 

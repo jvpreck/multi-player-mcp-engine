@@ -175,7 +175,7 @@ def test_start_here_and_every_guide_exist_and_name_real_tools(world):
         assert text and g.get("name", "players-guide") in (name, "players-guide") or name == "players-guide"
         for tool in set(re.findall(r"`([a-z_]+)\(", sh["start_here"] + text)):
             assert tool in tool_names, (name, tool)
-    assert eng.guide("")["guides"] and "free-text" not in eng.guide("how-to-use")["guide"]
+    assert eng.guide("")["guides"] and "free-text" not in eng.guide("player-client-guide")["guide"]
     assert "player key" in eng.guide("players-guide", "start")["guide"].lower()
     with pytest.raises(EngineError):
         eng.guide("nope")
