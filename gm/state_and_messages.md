@@ -603,7 +603,7 @@ Return **one JSON object and nothing else** (no markdown fences, no commentary).
 | `decisions` | Decision records to append (§6.4). |
 | `messages` | Message records to append (§6.4). |
 | `dice_log` | One entry per die used: `{ "die": "d6", "value": 4, "for": "c_iris Morning Infiltration" }`. |
-| `illustrations` | Optional, `resolve_tick` only: up to two pictures to draw (§6.7). Leave it out when `game.settings.illustrations` is not `"on"`. |
+| `illustrations` | Optional, `resolve_tick` only: the pictures to draw, up to `illustration_brief.max_pictures` (§6.7). Leave it out when `game.settings.illustrations` is not `"on"`. |
 | `gm_notes` | GM-only. The server stores it and may fold it into the chronicle. Never shown to players. |
 | `validation` | The character-validation block (§6.6), or `null`. |
 | `action` | For an `action` request handled as `queued` or `autonomous` only: `{ "parsed": { …as in §3.7… }, "supersedes": ["a_0009"], "clarifications": [] }`. The server stores it as the action record. |
@@ -705,11 +705,12 @@ Guidelines:
 
 ### 6.7 Illustrations
 
-When `game.settings.illustrations` is `"on"`, you may add `illustrations` to a `resolve_tick` response, each entry `{ "prompt": "…", "caption": "…", "visible_to": ["c_iris"] }`:
+When `game.settings.illustrations` is `"on"`, you may add `illustrations` to a `resolve_tick` response (the envelope carries `illustration_brief`: `tick_picture`, `max_pictures` and `locations_without_picture`, each `{ "location_id", "name", "characters_there" }`), each entry `{ "prompt": "…", "caption": "…", "visible_to": ["c_iris"] }`:
 
 - `prompt`: a visual description for an image model, in **English** whatever the game's language. 10 to 1500 characters. Say what is seen: place, light, weather, composition, period details, mood. The server adds the game's art style.
 - `caption`: one line of at most 200 characters in the game's language, shown to the players with the picture.
 - `visible_to`: the `character_id`s who perceive the scene. Only they, and only their players, can ever get the picture.
+- `location_id` (optional): the id of the place the picture shows. Use it for the picture of a place that is in `illustration_brief.locations_without_picture`; the server then treats that place as drawn and does not list it again.
 - `subjects` (optional): up to four ids of characters or NPCs who are in the picture and already have a portrait. The server gives the image model their reference pictures so they look the same. Describe in the prompt what they do, not what they look like.
 - The server prefixes `game.settings.image_style` to every picture. It is fixed when the game is created and you can never change it (an attempt is ignored). Do not repeat the style in the prompt, and never contradict it (era, place, medium).
 

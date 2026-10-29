@@ -103,10 +103,32 @@ def test_proposals_are_queued_only_when_on_and_bad_ones_dropped(world):
                            {"prompt": "A third valid one beyond the per-tick limit", "caption": "c", "visible_to": ["FIRST"]}]
     eng.resolve_tick(gid)
     imgs = scenes(store, gid)
-    assert len(imgs) == 1 and imgs[0]["status"] == "pending" and imgs[0]["visible_to"] == [cid] and prov.calls == []
+    assert len(imgs) == 2 and all(i["status"] == "pending" and i["visible_to"] == [cid] for i in imgs) and prov.calls == []   # four proposals, two usable
     gid2, _ = start(eng, "p_b", illustrations="off")
     eng.resolve_tick(gid2)
     assert store.find("image", game_id=gid2) == []                              # off: the AI Master's proposals are ignored
+
+
+def test_illustration_brief_lists_places_without_a_picture(world):
+    eng, store, prov, storage, clock = world
+    gid, cid = start(eng, "p_a")
+    ws = eng._ws()
+    game = ws.get("game", gid)
+    chars = ws.load_game_characters(gid)
+    brief = eng._illustration_brief(ws, game, chars)
+    here = chars[0]["location"]["id"]
+    assert brief["tick_picture"] is True and brief["max_pictures"] == 4
+    assert [x["location_id"] for x in brief["locations_without_picture"]] == [here]
+    assert brief["locations_without_picture"][0]["characters_there"] == [cid]
+    # a picture that names the place counts as drawn; one that does not leaves it listed
+    PROPOSALS["items"] = [{"prompt": "The lodging house hall at night, lamplight, 1925", "caption": "c", "visible_to": ["FIRST"], "location_id": here}]
+    eng.resolve_tick(gid)
+    assert scenes(store, gid)[0]["location_id"] == here
+    ws = eng._ws()
+    assert eng._illustration_brief(ws, ws.get("game", gid), ws.load_game_characters(gid))["locations_without_picture"] == []
+    gid2, _ = start(eng, "p_b", illustrations="off")
+    ws = eng._ws()
+    assert eng._illustration_brief(ws, ws.get("game", gid2), ws.load_game_characters(gid2)) is None
 
 
 def test_draw_deliver_list_and_ask_again(world):

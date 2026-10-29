@@ -150,12 +150,31 @@ class Engine:
             make_dice((40 + 30 * len(chars)) * dice_scale, 30 * dice_scale, 30 * dice_scale),
             "request": request,
         }
+        brief = self._illustration_brief(ws, game, chars) if mode == "resolve_tick" else None
+        if brief:
+            env["illustration_brief"] = brief
         if game["phase"] in ("setup", "characters"):
             env["available_adventures"] = self.adventure_catalog(None)
             env["available_rulesets"] = [{"id": k, "title": v["meta"].get("title")} for k, v in self.rulesets().items()]
         if previous_errors:
             env["previous_errors"] = previous_errors
         return env
+
+    def _illustration_brief(self, ws, game, chars):
+        """For a game with pictures on: tell the AI Master what the protocol (5.6) expects this tick. One picture of the tick, and one for each
+        place the characters are in that has never been drawn, with the characters who are there now."""
+        if (game.get("settings") or {}).get("illustrations") != "on" or not self._images_available():
+            return None
+        drawn = {im.get("location_id") for im in ws.find("image", game_id=game["id"]) if im.get("kind") == "scene" and im.get("location_id")}
+        new = {}
+        for c in chars:
+            if not c.get("is_alive", True) or c.get("status") not in ("active", "sidelined"):
+                continue
+            loc = c.get("location") if isinstance(c.get("location"), dict) else {}
+            lid = loc.get("id")
+            if lid and lid not in drawn:
+                new.setdefault(lid, {"location_id": lid, "name": loc.get("name"), "characters_there": []})["characters_there"].append(c["id"])
+        return {"tick_picture": True, "max_pictures": config.IMAGES_PER_TICK, "locations_without_picture": list(new.values())}
 
     # --------------------------------------------------------------- GM loop
     def _run(self, ws, game_id, mode, request, requester_cid=None, post=None, store_in_tick=False):
@@ -349,9 +368,10 @@ class Engine:
             if not vis:
                 continue
             subjects = [x[:60] for x in (it.get("subjects") or []) if isinstance(x, str)][:4]
+            lid = it.get("location_id") if isinstance(it.get("location_id"), str) and it["location_id"].strip() else None
             iid = short("img")
             ws.put("image", iid, {"id": iid, "kind": "scene", "game_id": game["id"], "tick": tick, "prompt": it["prompt"].strip(), "caption": str(it.get("caption") or "")[:200],
-                                  "subjects": subjects, "visible_to": sorted(set(vis)), "status": "pending", "attempts": 0,
+                                  "subjects": subjects, "location_id": lid[:60] if lid else None, "visible_to": sorted(set(vis)), "status": "pending", "attempts": 0,
                                   "created_at": iso(self.now()), "notified": []})
 
     # -- portraits: a reference sheet (three 512 pictures nobody sees) and the 1024 portrait shared with the players

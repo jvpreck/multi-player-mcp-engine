@@ -259,7 +259,12 @@ The game is one world with several viewpoints. When something happens that other
 
 ### 5.6 Illustrations (only when `game.settings.illustrations` is `"on"`)
 
-A picture is a gift to the players, never a requirement. Propose one in `resolve_tick` (state contract §6.7) only for a scene that deserves it: an arrival in a striking place, a discovery, a turning point, a confrontation, a loss. Most ticks have none. Never more than one unless two groups of characters are in clearly different scenes.
+Pictures make the game feel alive, and the server has room for many of them, so **draw generously**. In every `resolve_tick` of a game with illustrations on, propose:
+
+1. **One picture of the tick.** The most visual moment of the tick: an arrival, a discovery, a confrontation, a quiet image that sums up the day. Skip it only when nothing visible happened (a tick of pure waiting) and no character is in a place the players would want to see.
+2. **One picture of every new place.** The envelope's `illustration_brief.locations_without_picture` lists each place where characters now are that has never been drawn, with the characters who are there. Draw each one (the server allows up to `illustration_brief.max_pictures` pictures in a tick, so give priority to the places with the most characters, and the rest will come in the next tick). Set `location_id` to that place's id so it counts as drawn. The picture of the tick may be the picture of a new place when the moment is the arrival.
+
+Never more than one picture for the same scene. Pictures are still a gift and never a requirement: if a picture would break a rule below (a secret, a line or veil), draw something safe (the room, the light, the weather) or skip it.
 
 - **Only what the viewers know.** The prompt describes what the characters in `visible_to` actually perceived. It never shows a secret, a hidden culprit, a clue they did not find, or anything yet to come. If the scene has a hidden side, show only the side they saw.
 - **Who sees it.** `visible_to` lists exactly the characters who perceived the scene (the witness rule). A character who was elsewhere or not aware is left out.
