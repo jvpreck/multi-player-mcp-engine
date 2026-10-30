@@ -33,7 +33,8 @@ NARRATION_BRIEF = (
     "OPENING: when narration_hints.opening is true this is the first narration of the game. Make it long and rich (about 600 to 1000 words, "
     "several paragraphs): first the setting (place, year, the season and hour, a short historical or social background that bears on "
     "the adventure), then the character (background, profession, how they look, what drives them, who they care about), using only the "
-    "facts, then the scene. Offer the character's portrait when the illustrations list has one."
+    "facts, then the scene. Offer the character's portrait when the illustrations list has one. "
+    "ILLUSTRATIONS: when you link a picture, the link text is a caption of what it shows, prefixed with \"Illustration: \", for example [Illustration: the lamp-lit ward at night](url)."
 )
 
 
@@ -646,7 +647,8 @@ class Engine:
         ttl = config.IMAGE_URL_TTL_SECONDS
         return {"image_id": image_id, "status": "ready", "kind": im.get("kind", "scene"), "tick": im["tick"], "caption": im.get("caption", ""),
                 "url": self.images.storage.signed_url(im["path"], ttl), "expires_in_seconds": ttl,
-                "note": f"Show this as a link for the player to open in the browser. It stops working after {ttl // 60} minutes, "
+                "link_text": "Illustration: " + (im.get("caption") or "").strip(),
+                "note": f"Show this as a markdown link for the player to open in the browser, [link_text](url): the link text is a caption of what the picture shows, starting with \"Illustration: \". It stops working after {ttl // 60} minutes, "
                         "and the player can ask for the picture again at any time to get a new link. Do not post it anywhere shared. "
                         "If your client can display images, call get_image again with inline=true to show the picture itself."}
 

@@ -150,6 +150,7 @@ def test_draw_deliver_list_and_ask_again(world):
     assert eng.get_results("p_a", gid)["illustrations"] == []
     # asking for it gives a short-lived link, and again gives another, also later in time
     a = eng.get_image("p_a", gid, iid)
+    assert a["link_text"] == "Illustration: The road to the hill"
     assert a["status"] == "ready" and a["url"].endswith(f"expires_in={config.IMAGE_URL_TTL_SECONDS}") and path in a["url"]
     assert a["expires_in_seconds"] == config.IMAGE_URL_TTL_SECONDS
     clock.t += timedelta(days=10)                                               # long after the first link expired
