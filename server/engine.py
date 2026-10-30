@@ -34,6 +34,7 @@ NARRATION_BRIEF = (
     "several paragraphs): first the setting (place, year, the season and hour, a short historical or social background that bears on "
     "the adventure), then the character (background, profession, how they look, what drives them, who they care about), using only the "
     "facts, then the scene. Offer the character's portrait when the illustrations list has one. "
+    "If pending_illustrations is above 0, tell the player in one line that a picture is still being drawn and will be listed the next time results are fetched. "
     "ILLUSTRATIONS: when you link a picture, the link text is a caption of what it shows, prefixed with \"Illustration: \", for example [Illustration: the lamp-lit ward at night](url)."
 )
 
@@ -351,6 +352,9 @@ class Engine:
             out["deliveries"].append({"game_id": c["game_id"], "character_id": c["id"], "items": [self._client_item(i) for i in items],
                                       "sync": redact.sync_block(g, c, allc)})
         out["illustrations"] = self._new_illustrations(ws, player_id, chars, mark)
+        mine = {c["id"] for c in chars}
+        out["pending_illustrations"] = sum(1 for g_id in {c["game_id"] for c in chars} for im in ws.find("image", game_id=g_id, status="pending")
+                                           if mine & set(im.get("visible_to", [])))
         p = ws.get("player", player_id)
         gids = {game_id} if game_id else set((p or {}).get("games", []))
         for gid in gids:
@@ -537,7 +541,7 @@ class Engine:
         st.put(path, data, "image/jpeg")
         im.update({"status": "ready", "path": path, "bytes": len(data), "content_type": "image/jpeg", "ready_at": iso(self.now())})
 
-    def process_images(self, limit=None, budget_seconds=None):
+    def process_images(self, limit=None, budget_seconds=None, game_ids=None):
         """Draws queued pictures (called after the scheduler resolves ticks, or by the host). `limit` counts generation calls. Stops at the
         first quota limit, and when there is not enough of the function's time left for another call. A portrait keeps its progress
         between runs."""
@@ -551,7 +555,8 @@ class Engine:
         deadline = None if budget_seconds is None else time.monotonic() + budget_seconds
         done = failed = dropped = calls = 0
         min_left = 12.0
-        rows = sorted(self.store.find("image", status="pending"), key=lambda r: (r[0].get("kind") != "portrait", r[0].get("created_at", "")))
+        rows = sorted((r for r in self.store.find("image", status="pending") if not game_ids or r[0].get("game_id") in game_ids),
+                      key=lambda r: (r[0].get("kind") != "portrait", r[0].get("created_at", "")))
         for rec, _ in rows[:limit * 3]:
             ws = self._ws()
             im = ws.get("image", rec["id"])
@@ -595,6 +600,21 @@ class Engine:
                 break
         return {"generated": done, "failed": failed, "dropped": dropped}
 
+    def _draw_for_player(self, player_id, game_id=None):
+        """Draws this player's queued pictures during their own call (a few seconds each), so they are ready in the result instead of waiting hours
+        for the scheduler. Never raises: pictures must never get in the way of play."""
+        try:
+            if not config.INLINE_IMAGE_SECONDS or not self._images_available():
+                return
+            ws = self._ws()
+            p = ws.get("player", player_id)
+            gids = {game_id} if game_id else set((p or {}).get("games", []))
+            if not any(True for _ in (r for r in self.store.find("image", status="pending") if r[0].get("game_id") in gids)):
+                return
+            self.process_images(budget_seconds=config.INLINE_IMAGE_SECONDS, game_ids=gids)
+        except Exception:
+            pass
+
     def set_game_options(self, player_id, game_id, illustrations=""):
         """The host of a game (the player who created it, not the server administrator) can turn illustrations on or off."""
         ws = self._ws()
@@ -626,7 +646,7 @@ class Engine:
         rows.sort(key=lambda im: (im["tick"], im["created_at"]))
         return {"images": [{"image_id": im["id"], "kind": im.get("kind", "scene"), "tick": im["tick"], "caption": im.get("caption", ""), "status": im["status"]}
                            for im in rows],
-                "note": "Call get_image with an image_id to get a link. A picture still 'pending' is being drawn and is ready after the next tick run."}
+                "note": "Call get_image with an image_id to get a link. A picture still 'pending' is being drawn: ask again in a minute (it is drawn during the player's calls and by the scheduler)."}
 
     def _visible_image(self, player_id, game_id, image_id):
         ws = self._ws()
@@ -674,6 +694,7 @@ class Engine:
         return r
 
     def _finish(self, ws, player_id, game_id, extra=None):
+        self._draw_for_player(player_id, game_id)
         self._sync_player_index(ws, [player_id])
         out = self._deliver(ws, player_id, game_id)
         ws.commit()
@@ -1349,6 +1370,7 @@ class Engine:
 
     # ---- get_results / get_character / summary
     def get_results(self, player_id, game_id=None):
+        self._draw_for_player(player_id, game_id)
         ws = self._ws()
         self._player(ws, player_id)
         out = self._deliver(ws, player_id, game_id)

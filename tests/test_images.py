@@ -56,7 +56,8 @@ def gm_rule(env, n):
 
 
 @pytest.fixture
-def world():
+def world(monkeypatch):
+    monkeypatch.setattr(config, "INLINE_IMAGE_SECONDS", 0)  # these tests draw only through the scheduler; see test_pictures_are_drawn_during_the_players_call
     store, clock = MemoryStore(), Clock()
     prov, storage = FakeProvider(), MemoryImageStorage()
     CHECK["fail_next"] = 0
@@ -424,3 +425,13 @@ def test_illustrations_default_to_on_when_the_server_can_draw():
     assert tasks.validate_game(dict(base, image_style="x" * config.STYLE_MIN), {}, True) == []
     assert tasks.validate_game(base, {}, False) == []  # no provider: off
     assert tasks.validate_game(dict(base, illustrations="off"), {}, True) == []
+
+
+def test_pictures_are_drawn_during_the_players_call(world, monkeypatch):
+    eng, store, prov, storage, clock = world
+    monkeypatch.setattr(config, "INLINE_IMAGE_SECONDS", 40)
+    gid, cid = start(eng, "p_a")
+    assert portraits(store, gid) and all(p["status"] == "ready" for p in portraits(store, gid))  # drawn inside the confirm call
+    r = eng.get_results("p_a", gid)
+    assert r["pending_illustrations"] == 0
+    assert {i["status"] for i in eng.list_images("p_a", gid)["images"]} == {"ready"}

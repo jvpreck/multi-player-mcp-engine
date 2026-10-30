@@ -49,6 +49,7 @@ IMAGE_TIMEOUT_SECONDS = 25
 FUNCTION_BUDGET_SECONDS = int(os.environ.get("FUNCTION_BUDGET_SECONDS", "240"))  # Vercel maxDuration is 300 (see vercel.json)
 TICK_RESERVE_SECONDS = int(os.environ.get("TICK_RESERVE_SECONDS", "110"))  # no new tick is started with less than this left
 GEMINI_TIMEOUT_SECONDS = int(os.environ.get("GEMINI_TIMEOUT_SECONDS", "100"))  # one model call must never outlive the function
+INLINE_IMAGE_SECONDS = int(os.environ.get("INLINE_IMAGE_SECONDS", "40"))  # pictures drawn during a player call, so they do not wait for the scheduler
 IMAGE_PENDING_DAYS = 3  # a picture not drawn after this long is dropped
 LIGHT_MAX_WAIT_SECONDS = 8
 GM_MAX_ATTEMPTS = int(os.environ.get("GM_MAX_ATTEMPTS", "2"))
