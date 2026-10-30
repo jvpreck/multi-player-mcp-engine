@@ -85,7 +85,7 @@ The free tier gives a strong model few requests (about 20 a day, 5 a minute) and
 
 ## Illustrations
 
-Each game has a setting `illustrations` (`off` by default, `on` chosen when the game is created, or later by the game's host with `set_game_options`). It is only offered when the server has the image provider configured.
+Each game has a setting `illustrations` (`on` by default when the server can draw pictures, `off` otherwise; chosen when the game is created, or later by the game's host with `set_game_options`). It is only offered when the server has the image provider configured.
 
 - **Who asks for a picture.** Only the AI Master, in a tick response, as `illustrations: [{prompt, caption, visible_to}]` (state contract §6.7, protocol §5.6). A bad proposal is dropped silently, so a picture can never block a tick.
 - **Generation.** The proposal is queued as a `gm_images` record. After the scheduler has resolved ticks, `/internal/resolve_tick` draws the queued pictures with **Cloudflare Workers AI, FLUX.1 schnell** (`prompt` and `steps`, base64 JPEG back). It draws at most `IMAGES_PER_RUN` (3) per run and stops when the function's time is nearly used or the day's guard (`IMAGE_RPD`, 150, under Cloudflare's roughly 170 a day at 1024x1024 and 4 steps) is reached. The rest stay queued for the next run, and are dropped after 3 days. A failure is tried once more, then marked failed.

@@ -1014,7 +1014,7 @@ class Engine:
                         "lethality": (params.get("settings") or {}).get("lethality") or rec.get("lethality", "high"),
                         "tick_interval_hours": (params.get("settings") or {}).get("tick_interval_hours") or rec.get("tick_interval_hours", 24),
                         "tick_span": (params.get("settings") or {}).get("tick_span") or rec.get("tick_span", "day"),
-                        "pvp": (params.get("settings") or {}).get("pvp") or "soft", "visibility": "private", "illustrations": "off"}
+                        "pvp": (params.get("settings") or {}).get("pvp") or "soft", "visibility": "private", "illustrations": "on" if self._images_available() else "off"}
             ctx = tasks.game_context(adv, defaults, self._images_available())
         elif kind == "generate_character":
             game = self._game(ws, params["game_id"])
@@ -1101,6 +1101,8 @@ class Engine:
             s = {k: package[k] for k in ("lethality", "tick_span", "tick_interval_hours", "pvp", "visibility", "illustrations", "image_style") if package.get(k)}
             if isinstance(s.get("image_style"), str):
                 s["image_style"] = s["image_style"].strip()
+            if "illustrations" not in s and self._images_available():
+                s["illustrations"] = "on"  # the default; the validator required an image_style
             out = self._create_game(player_id, params["adventure_id"], package.get("title") or params.get("title"),
                                     package.get("language") or params.get("language"), s, package.get("display_name") or params.get("display_name"))
             done({"game_id": out["game_id"]})

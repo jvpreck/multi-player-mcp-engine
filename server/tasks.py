@@ -241,14 +241,15 @@ def validate_game(p, adventure, images_available=False):
         problems.append("tick_interval_hours must be 1 to 168")
     if p.get("pvp", "soft") not in ("none", "soft", "full"):
         problems.append("pvp must be none, soft or full")
-    if p.get("illustrations", "off") not in ("off", "on"):
+    ill = p.get("illustrations") or ("on" if images_available else "off")  # on by default when the server can draw
+    if ill not in ("off", "on"):
         problems.append("illustrations must be off or on")
-    elif p.get("illustrations") == "on" and not images_available:
+    elif ill == "on" and not images_available:
         problems.append("illustrations are not available on this server; use off")
     st = p.get("image_style")
     if st is not None and (not isinstance(st, str) or not (config.STYLE_MIN <= len(st.strip()) <= config.STYLE_MAX)):
         problems.append(f"image_style must be text of {config.STYLE_MIN} to {config.STYLE_MAX} characters")
-    elif p.get("illustrations") == "on" and not st:
+    elif ill == "on" and not st:
         problems.append("image_style is required when illustrations are on")
     if p.get("visibility", "private") not in ("private", "open"):
         problems.append("visibility must be private or open")

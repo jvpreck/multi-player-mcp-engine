@@ -781,7 +781,7 @@ Apply when a player or the host does not answer, or at the setup deadline.
 | `tick_span` | `day` (four Blocks) |
 | `early_close` | `true` for solo, `false` for party |
 | `pvp` | `soft` |
-| `illustrations` | `off` |
+| `illustrations` | `on` when the server can draw pictures, otherwise `off` |
 | `lethality` | `high` |
 | `adventure.generation` | the supplied adventure if one exists, otherwise `emergent` |
 | `standing_orders.hold` | Stay safe, rest, take no risks |

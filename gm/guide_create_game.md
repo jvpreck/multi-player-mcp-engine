@@ -20,7 +20,7 @@ Use this when the player wants to start a new game from an adventure. A game is 
 - **PvP:** none, soft or full.
 - **Visibility:** `private` (only people who get the game id) or `open` (listed for other registered players while there are free seats).
 - **Language** and the player's display name.
-- **Illustrations** (only offered when the server has them): `off` or `on`. When `on`, you also write the game's **image style**: one English paragraph (40 to 700 characters) fixing the look of every picture in the game: medium and technique, era and year, place, ambience, light, palette. Build it from the adventure's player-safe part. **It can never be changed afterwards**, so show it to the player and let them adjust it before you submit. Never name real artists, brands or known characters, and ask for no readable text.
+- **Illustrations** (only offered when the server has them): `on` (the default) or `off`. When `on`, you also write the game's **image style**: one English paragraph (40 to 700 characters) fixing the look of every picture in the game: medium and technique, era and year, place, ambience, light, palette. Build it from the adventure's player-safe part. **It can never be changed afterwards**, so show it to the player and let them adjust it before you submit. Never name real artists, brands or known characters, and ask for no readable text.
 
 ## After
 

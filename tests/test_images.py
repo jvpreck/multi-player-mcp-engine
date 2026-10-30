@@ -414,3 +414,12 @@ def test_character_portrait_is_queued_when_the_game_starts(world):
     assert [p["subject_id"] for p in portraits(store, gid)] == [cid]  # queued at start, before any scheduler run
     gid2, _ = start(eng, "p_b", illustrations="off")
     assert portraits(store, gid2) == []
+
+
+def test_illustrations_default_to_on_when_the_server_can_draw():
+    from server import tasks
+    base = {"lethality": "high", "tick_span": "day", "tick_interval_hours": 24, "pvp": "soft", "visibility": "private"}
+    assert tasks.validate_game(base, {}, True) == ["image_style is required when illustrations are on"]
+    assert tasks.validate_game(dict(base, image_style="x" * config.STYLE_MIN), {}, True) == []
+    assert tasks.validate_game(base, {}, False) == []  # no provider: off
+    assert tasks.validate_game(dict(base, illustrations="off"), {}, True) == []
