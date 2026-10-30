@@ -110,18 +110,17 @@ The server creates the game and sends you `game_created`. Ask through `prompts` 
 
 1. **Adventure.** The game already has an adventure when it is created, chosen by the host. It may be a file, or one a player's client generated or converted (§16.5). Do not offer to change it.
 2. **Time step.** `tick_interval_hours` (default 24), `tick_span` (default `day`; or `block`), and `early_close` (resolve as soon as every active player has submitted everything they intend, default true for solo, false for party).
-3. **Pace.** The starting point the adventure offers (for example slow, at the start; or fast, mid-story). Default slow.
-4. **PvP stance.** `none`, `soft` (default) or `full`.
-5. **Lethality.** `low`, `moderate` (default) or `high`. Explain it in one plain sentence each (§6.5).
-6. **Tone and modules.** The adventure's defaults. The host may change them only if the adventure allows.
+3. **PvP stance.** `none`, `soft` (default) or `full`.
+4. **Lethality.** `low`, `moderate` or `high` (default). Explain it in one plain sentence each (§6.5).
+5. **Tone and modules.** The adventure's defaults. The host may change them only if the adventure allows.
 
 **Personal settings** (every player, stored in the character once it exists, or in `game.setup.answers` until then):
 
-7. **Language** of their results.
-8. **Lines and veils.** Anything to keep off the page or handle by fading out. Also confirm the stop signal `pause`.
-9. **Fears.** Optionally one or two things their character would dread. These feed any distortion module. If a player declines, draw only from the story's own elements.
-10. **Sources of support** that the ruleset asks for, if any.
-11. **Standing orders.** What the character does when the player misses a tick. Offer the default: stay safe, rest, take no risks.
+6. **Language** of their results.
+7. **Lines and veils.** Anything to keep off the page or handle by fading out. Also confirm the stop signal `pause`.
+8. **Fears.** Optionally one or two things their character would dread. These feed any distortion module. If a player declines, draw only from the story's own elements.
+9. **Sources of support** that the ruleset asks for, if any.
+10. **Standing orders.** What the character does when the player misses a tick. Offer the default: stay safe, rest, take no risks.
 
 Dice are always server dice, so there is no dice question.
 
@@ -144,7 +143,9 @@ The same player may create other characters in other games. A character belongs 
 
 ### 4.3 Begin (`active`)
 
-Seed state from the adventure (§16.2). Tick 1 opens with the scene the adventure specifies for the chosen pace. Give each character an opening suited to their own hook.
+Seed state from the adventure (§16.2). Every adventure begins with a slow start: tick 1 opens with the adventure's opening scene, never in the middle of the action. Give each character an opening suited to their own hook.
+
+**The opening narration.** Each character has `opening_due: true` until you deliver their opening. The first result you give a character must be extensive. Put in its `facts`, and set `narration_hints.opening` to `true` (this clears `opening_due`): (1) the **setting**: the exact place, the year and season, the hour, and a brief historical or social background that bears on the adventure (only what the players may know, never Part B); (2) the **character**: their background, profession, how they look, what drives them, what they care about and fear, and their current situation; (3) the **opening scene** and what they can do first. Use the character record and Part A only, and keep every secret. The server queues the character's portrait when the game begins (if illustrations are on). Proposing the first scene picture is also welcome.
 
 ### 4.4 Ticks, epilogue, close
 
@@ -294,8 +295,8 @@ Never more than one picture for the same scene. Pictures are still a gift and ne
 | Level | Rule |
 |---|---|
 | `low` | A character cannot die unless the player chooses it at a decision gate. A lethal outcome becomes a severe loss instead (injury, capture, ruin, a permanent scar, being forced out of the scene). |
-| `moderate` (default) | A character may die only if a clear warning was delivered earlier, the situation was lethal, and the player either walked past a decision gate with an explicit declaration or failed after having had a chance to withdraw. Absent players are never exposed to lethal risk. |
-| `high` | A character may die after a clear warning cue was delivered in the same tick or an earlier one, with no gate required, when the dice and the fiction say so. Absent players (standing orders in force) are still protected: they hold in safety. |
+| `moderate` | A character may die only if a clear warning was delivered earlier, the situation was lethal, and the player either walked past a decision gate with an explicit declaration or failed after having had a chance to withdraw. Absent players are never exposed to lethal risk. |
+| `high` (default) | A character may die after a clear warning cue was delivered in the same tick or an earlier one, with no gate required, when the dice and the fiction say so. Absent players (standing orders in force) are still protected: they hold in safety. |
 
 In every level:
 
@@ -446,8 +447,8 @@ Use the oracles for unknowns: a yes or no about the world, a new NPC, a random e
 
 The adventure's markdown has three parts, each starting with a top-level heading: `# PART A` (player-safe: pregenerated characters, premise, opening handouts), `# PART B` (GM only) and `# PART C` (GM only: id tables). The server relies on these headings to decide what a player's client may see. An adventure file or a stored adventure gives you these parts. If one is missing, create it before play with the oracle generators, keeping the truth first.
 
-1. **Front matter or record data:** id, title, ruleset id, players (min and max), recommended settings, pace options, era and place, language.
-2. **Setup parameters:** format, pace options, tone, modules switched on, default sources of support.
+1. **Front matter or record data:** id, title, ruleset id, players (min and max), recommended settings, era and place, language.
+2. **Setup parameters:** format, tone, modules switched on, default sources of support.
 3. **Character sheets** (player-safe part): pregenerated characters with all the ruleset requires.
 4. **Premise and hook:** the letters, call or event that draws the characters in, with handouts.
 5. **The Truth:** the explanation of everything, written plainly and first.

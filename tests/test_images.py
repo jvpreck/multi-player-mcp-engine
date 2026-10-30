@@ -406,3 +406,11 @@ def test_get_image_inline_returns_the_picture_itself(world):
     eng.authenticate = lambda key: "p_z"
     bad = asyncio.run(mcp.call_tool("get_image", {"player_key": "k", "game_id": gid, "image_id": iid, "inline": True}))
     assert "error" in json.dumps(bad, default=str)
+
+
+def test_character_portrait_is_queued_when_the_game_starts(world):
+    eng, store, prov, storage, clock = world
+    gid, cid = start(eng, "p_a")
+    assert [p["subject_id"] for p in portraits(store, gid)] == [cid]  # queued at start, before any scheduler run
+    gid2, _ = start(eng, "p_b", illustrations="off")
+    assert portraits(store, gid2) == []

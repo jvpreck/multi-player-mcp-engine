@@ -107,8 +107,8 @@ def register(mcp, engine: Engine):
     @_safe
     def create_game(player_key: str, adventure_id: str, title: str = "", language: str = "", display_name: str = "",
                     lethality: str = "", tick_interval_hours: int = 0, tick_span: str = "", pvp: str = "", visibility: str = "") -> dict:
-        """Start a new game run from an adventure. Returns a work package that collects the settings (lethality low, moderate or high,
-        tick interval, pvp, pace, language, visibility private or open) with the player; then send the result with submit_package. Optional arguments prefill defaults."""
+        """Start a new game run from an adventure. Returns a work package that collects the settings (lethality low, moderate or high; the default is high,
+        tick interval, pvp, language, visibility private or open) with the player; then send the result with submit_package. Optional arguments prefill defaults."""
         s = {k: v for k, v in {"lethality": lethality, "tick_interval_hours": tick_interval_hours or None,
                                "tick_span": tick_span, "pvp": pvp, "visibility": visibility}.items() if v}
         return engine.create_game(engine.authenticate(player_key), adventure_id, title or None, language or None, s, display_name or None)

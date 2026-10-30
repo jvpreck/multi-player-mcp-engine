@@ -167,7 +167,7 @@ def adventure_record_from_file(entry: dict) -> dict:
         "generation": m.get("generation", "supplied"), "era": m.get("era"),
         "players": m.get("players", {"min": 1, "max": 5}),
         "recommended": m.get("recommended", {}),
-        "pace_options": m.get("pace_options", []), "language": m.get("language", "en"),
+        "language": m.get("language", "en"),
         "summary": m.get("summary", ""), "seed": None, "owner_player_id": None,
         "pregenerated": m.get("pregenerated", []),
     }

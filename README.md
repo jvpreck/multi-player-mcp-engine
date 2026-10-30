@@ -24,7 +24,7 @@ An asynchronous, multi-player (or solo) tabletop RPG run by an AI Master.
 - **NPCs and locations** are a fixed definition (in the adventure, or a database record scoped to a game) plus a per-game state record.
 - **Ticks.** Every tick (default 24 hours) the AI Master resolves all queued actions, arbitrates conflicts and returns each player their own results. Solo games can close the tick as soon as the player has acted (`early_close`).
 - **Playing without waiting.** The client answers narration, rules and stat questions locally. Minor actions that affect only one character are resolved at once (they use up that character's Blocks of the tick). Characters in the same place can talk instantly (`say`, handled by the server without calling the AI). Others in the scene see what a character does.
-- **Lethality** (`low`, `moderate`, `high`) is set per game. When a character dies the player is offered a new character, a pregenerated one, or an available NPC, and carries on in the same game.
+- **Lethality** (`low`, `moderate`, `high`; default `high`) is set per game. When a character dies the player is offered a new character, a pregenerated one, or an available NPC, and carries on in the same game.
 
 ## Repository layout
 

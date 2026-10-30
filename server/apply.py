@@ -307,6 +307,9 @@ class Applier:
         item = {"id": new_id("r"), "tick": tick, "kind": kind, "delivered": False,
                 "created_at": self.now, "result": result}
         character["inbox"].append(item)
+        hints = result.get("narration_hints") if isinstance(result, dict) else None
+        if character.get("opening_due") and isinstance(hints, dict) and hints.get("opening") is True:
+            character["opening_due"] = False
         self._touch_char(character)
         return item
 
@@ -348,7 +351,7 @@ class Applier:
                     "prompts": [], "narration_hints": {"mood": "", "pace": "", "senses": [], "do_not": []}}, tick)
 
     def check_lethality(self, game, characters, decisions):
-        lethality = (game.get("settings") or {}).get("lethality", "moderate")
+        lethality = (game.get("settings") or {}).get("lethality", "high")
         for c in characters:
             if self.before_alive.get(c["id"], True) and not c.get("is_alive", True):
                 if not c.get("death"):

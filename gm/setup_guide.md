@@ -86,7 +86,7 @@ How deadly the game is is chosen when it is created, and you can always see it:
 | Lethality | What it means |
 |---|---|
 | **Low** | Your character cannot die unless **you** choose it at a decision point. Lethal outcomes become severe losses instead (injury, capture, ruin, a scar). |
-| **Moderate** (default) | Your character can die only after a clear warning was given and you had a chance to withdraw or you walked past a decision point on purpose. Players who are away are never exposed to lethal risk. |
+| **Moderate** | Your character can die only after a clear warning was given and you had a chance to withdraw or you walked past a decision point on purpose. Players who are away are never exposed to lethal risk. |
 | **High** | Your character can die after a clear warning, with the dice and the story deciding. Players who are away still hold in safety. |
 
 In every level the danger is shown to you in the story before it can kill, and a death is never silently reversed.

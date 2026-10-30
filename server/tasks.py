@@ -35,7 +35,7 @@ SCHEMAS = {
         "title": "string", "generation": "full | emergent | supplied", "era": "string", "place": "string",
         "players": {"min": "int", "max": "int"},
         "recommended": {"tick_span": "day | block", "tick_interval_hours": "int", "lethality": "low | moderate | high"},
-        "pace_options": ["string"], "language": "string", "summary": "string (one player-safe sentence)",
+        "language": "string", "summary": "string (one player-safe sentence)",
         "content": "string (markdown with # PART A, # PART B, # PART C)",
         "seed": "object (emergent only: truth, hook, stake, antagonist, clock_ticks, anchor_npcs[4], first_place, opening_handout)",
         "npcs": [{"id": "npc_...", "name": "string", "role": "string", "trait": "string", "goal": "string", "secret": "string",
@@ -44,7 +44,7 @@ SCHEMAS = {
         "pregenerated_ids": ["string"], "dice_used": {"d6": "int", "d10": "int", "d20": "int"}, "notes": "string"},
     "create_game": {
         "title": "string", "language": "string", "display_name": "string",
-        "lethality": "low | moderate | high", "pace": "string", "tick_interval_hours": "int", "tick_span": "day | block",
+        "lethality": "low | moderate | high", "tick_interval_hours": "int", "tick_span": "day | block",
         "pvp": "none | soft | full", "visibility": "private | open", "illustrations": "off | on",
         "image_style": "string, 40 to 700 characters, English: the fixed look of every picture in this game (required when illustrations is on)", "notes": "string"},
 }
@@ -58,7 +58,7 @@ def instructions(kind: str) -> str:
 def lethality_help():
     return {"low": "A character cannot die unless the player chooses it at a decision gate.",
             "moderate": "A character can die only after a clear warning and a chance to withdraw.",
-            "high": "A character can die after a clear warning, with no gate."}
+            "high": "A character can die after a clear warning, with no gate (the default: deadly, with fair warning)."}
 
 
 def build_package(kind, task_id, expires_at, context):
@@ -110,7 +110,7 @@ def ruleset_context(document_text, suggested_id, existing_ids, language):
 def game_context(adventure, defaults, images_available=False):
     return {"adventure": {"id": adventure["id"], "title": adventure.get("title"), "era": adventure.get("era"),
                           "summary": adventure.get("summary"), "players": adventure.get("players"),
-                          "recommended": adventure.get("recommended"), "pace_options": adventure.get("pace_options"),
+                          "recommended": adventure.get("recommended"),
                           "language": adventure.get("language")},
             "ruleset_id": adventure.get("ruleset_id"), "defaults": defaults,
             "options": {"lethality": ["low", "moderate", "high"], "tick_span": ["day", "block"], "pvp": ["none", "soft", "full"], "visibility": ["private", "open"],
@@ -192,7 +192,7 @@ def validate_adventure(p, ruleset_ids):
     h = rec.get("tick_interval_hours", 24)
     if not isinstance(h, int) or not (1 <= h <= 168):
         problems.append("recommended.tick_interval_hours must be 1 to 168")
-    if rec.get("lethality", "moderate") not in ("low", "moderate", "high"):
+    if rec.get("lethality", "high") not in ("low", "moderate", "high"):
         problems.append("recommended.lethality must be low, moderate or high")
     c = p.get("content")
     if not isinstance(c, str) or not (1500 <= len(c) <= 400_000):
@@ -232,7 +232,7 @@ def validate_game(p, adventure, images_available=False):
     problems = []
     if not isinstance(p, dict):
         return ["the package must be an object"]
-    if p.get("lethality", "moderate") not in ("low", "moderate", "high"):
+    if p.get("lethality", "high") not in ("low", "moderate", "high"):
         problems.append("lethality must be low, moderate or high")
     if p.get("tick_span", "day") not in ("day", "block"):
         problems.append("tick_span must be day or block")
@@ -252,9 +252,6 @@ def validate_game(p, adventure, images_available=False):
         problems.append("image_style is required when illustrations are on")
     if p.get("visibility", "private") not in ("private", "open"):
         problems.append("visibility must be private or open")
-    po = adventure.get("pace_options") or []
-    if p.get("pace") and po and p["pace"] not in po:
-        problems.append(f"pace must be one of {po}")
     for k in ("title", "language", "display_name"):
         if p.get(k) is not None and (not isinstance(p[k], str) or len(p[k]) > 120):
             problems.append(f"{k} must be text of at most 120 characters")

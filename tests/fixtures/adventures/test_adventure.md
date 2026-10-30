@@ -11,8 +11,6 @@ recommended:
   tick_interval_hours: 24
   early_close_solo: true
   early_close_party: false
-  lethality: moderate
-pace_options: [slow, fast]
 pregenerated: [pregen_test_pc]
 language: en
 summary: A fictional fixture used only by the automated tests. It is not a real adventure.

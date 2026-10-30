@@ -45,14 +45,14 @@ Context you receive: `ruleset_text`, `oracles_text` (random tables and generator
 Steps:
 
 1. **Read the ruleset (era notes, tone presets, modules, NPC tiers) and the oracles.** The adventure must work with this ruleset only.
-2. **Ask the player, in one batch** (skip what the seed already says): the era and place, the tone, how many players (minimum and maximum), the pace options (slow start, fast start), the recommended tick settings (default one tick per day, four Blocks), the recommended lethality (low, moderate, high), and whether the adventure should be `full` (a complete secret plan) or `emergent` (a short secret seed, the rest created in play). Default `emergent`.
+2. **Ask the player, in one batch** (skip what the seed already says): the era and place, the tone, how many players (minimum and maximum), the recommended tick settings (default one tick per day, four Blocks), the recommended lethality (low, moderate, high; default high), and whether the adventure should be `full` (a complete secret plan) or `emergent` (a short secret seed, the rest created in play). Default `emergent`.
 3. **`import` (a document):** convert it into the module format below without changing its facts. Mark in a notes list what you added and what was missing. Check it works with the ruleset: the characters have the abilities the clues need, difficulties are in range, each essential conclusion has three routes. Then go to step 7.
 4. **Generate the truth first,** using the oracles' generators with the server dice, in order: source, delivery, concealment and human factor. Adjust until it is coherent and follows the ruleset's truth rule. Then the hook, the stake, the time pressure and an optional twist. Then the antagonist (motivation, method, weakness).
 5. **`full`:** write every part of the contract. **`emergent`:** write the seed only: the truth, the hook and stake, the antagonist, the clock in ticks, four anchor NPCs (the antagonist, a helper, a witness, an authority), the first place and the opening handout. Also write Part A in full.
 6. **Define the fixed NPCs and locations with stable ids** (`npc_...`, `loc_...`). Each NPC: name, role, visible trait, goal, secret, a stat tier from the ruleset, a belief state if relevant. Each location: name, zone if relevant, one detail that hints at its past, exits. List them in the submission and in Part C of the content.
 7. **Self-check:** every essential conclusion has at least three routes tied to abilities the pregenerated or typical characters hold, plus a simple search route; the finale has at least three fair warnings and a discoverable way through; the clock is stated in ticks; no contradiction with the truth; the player-safe part reveals no secret.
 8. **Do not show the secrets to the player.** Tell them only the title, the premise and hook, the era, the player count and the recommended settings. Put the full text in the package without quoting it in the chat.
-9. **Submit** with `submit_package`: `title`, `generation` (`supplied` for an import, otherwise `full` or `emergent`), `era`, `place`, `players`, `recommended`, `pace_options`, `language`, `summary` (one player-safe sentence), `content` (the whole adventure in markdown, see the contract), `seed` (emergent only), `npcs`, `locations`, `pregenerated_ids`, `dice_used`, `notes`.
+9. **Submit** with `submit_package`: `title`, `generation` (`supplied` for an import, otherwise `full` or `emergent`), `era`, `place`, `players`, `recommended`, `language`, `summary` (one player-safe sentence), `content` (the whole adventure in markdown, see the contract), `seed` (emergent only), `npcs`, `locations`, `pregenerated_ids`, `dice_used`, `notes`.
 10. **When the server answers:** if rejected, fix the problems and resubmit. If accepted, tell the player the adventure id and that they can now start a game from it with `create_game`.
 
 **Adventure contract (the markdown in `content`)**
@@ -67,7 +67,7 @@ The text uses three top-level parts, each starting with a heading line exactly l
 
 Goal: collect the settings for a new game run from an existing adventure and hand them to the server.
 
-Context you receive: `adventure` (title, summary, era, player range, recommended settings, pace options, and its player-safe text), `ruleset_id`, `defaults`, `options`, `explanations` of each setting.
+Context you receive: `adventure` (title, summary, era, player range, recommended settings, and its player-safe text), `ruleset_id`, `defaults`, `options`, `explanations` of each setting.
 
 Steps:
 
@@ -75,15 +75,14 @@ Steps:
 2. **Ask the settings in one batch,** with the defaults in brackets:
    - Title of the game.
    - Language of their results.
-   - **Lethality:** `low` (a character cannot die unless the player chooses it), `moderate` (death only after a clear warning and a chance to withdraw), `high` (death is possible after a clear warning). Explain these in one plain sentence each.
-   - **Pace** of the story (the adventure's options).
+   - **Lethality:** `low` (a character cannot die unless the player chooses it), `moderate` (death only after a clear warning and a chance to withdraw), `high` (the default: death is possible after a clear warning). Explain these in one plain sentence each.
    - **Time step:** how often the world advances (default every 24 hours) and how much game time that covers (a day, or a Block).
    - **PvP stance:** `none`, `soft` (default), `full`.
    - Solo or with others. If with others, tell them the game id will be given after creation so they can share it.
    - **Visibility:** `private` (default: only people who are given the game id can join) or `open` (the game is listed for any registered player to find and join while it has free seats).
    - **Illustrations:** `off` (default) or `on`, offered only if `package.context.options.illustrations` lists `on`. With `on`, the game occasionally gets a picture of an important scene, shown only to the characters who were there. Pictures open as a link in the browser and the link expires after a few minutes, but the player can ask for any past picture again.
    - **Image style** (`image_style`, required when illustrations are `on`; write it in any case). One paragraph in English, 40 to 700 characters, that fixes the look of every picture in this game: the art medium and technique, the era and year, the place or city, the ambience and weather, the lighting, the colour palette, the mood. Build it from the adventure's era, place and tone (Part A and the ruleset only, never secrets). Example: "Gothic ink-and-watercolour illustration, Massachusetts 1925, damp fog, sodium-yellow lamplight, muted greens and browns, quiet dread." It must not name real artists, brands, known artworks or characters, and must ask for no readable text. **It can never be changed after the game is created**, so show it to the host and let them adjust it before you submit.
-3. **Submit** with `submit_package`: `title`, `language`, `display_name`, `lethality`, `pace`, `tick_interval_hours`, `tick_span`, `pvp`, `visibility`, `illustrations`, `image_style`, `notes`.
+3. **Submit** with `submit_package`: `title`, `language`, `display_name`, `lethality`, `tick_interval_hours`, `tick_span`, `pvp`, `visibility`, `illustrations`, `image_style`, `notes`.
 4. **When the server answers,** give the player the `game_id`, show the setup questions the server returns, and carry on with character creation (`generate_character`).
 
 ## TASK: import_ruleset

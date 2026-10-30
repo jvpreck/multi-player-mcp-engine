@@ -108,7 +108,7 @@ def standard_gm(env, n):
 
 
 def game_pkg(**kw):
-    d = {"title": "Run", "language": "en", "display_name": "Jorge", "lethality": "moderate", "pace": "slow",
+    d = {"title": "Run", "language": "en", "display_name": "Jorge", "lethality": "moderate",
          "tick_interval_hours": 24, "tick_span": "day", "pvp": "soft"}
     d.update(kw)
     if d.get("illustrations") == "on" and not d.get("image_style"):
@@ -121,7 +121,7 @@ def new_game(eng, player, adv=ADV, language=None, settings=None):
     out = eng.create_game(player, adv, language=language, settings=settings)
     pkg = out["package"]
     s = settings or {}
-    return eng.submit_package(player, pkg["task_id"], game_pkg(**{k: v for k, v in s.items() if k in ("lethality", "pvp", "pace", "tick_span", "tick_interval_hours", "visibility", "illustrations", "image_style")}))
+    return eng.submit_package(player, pkg["task_id"], game_pkg(**{k: v for k, v in s.items() if k in ("lethality", "pvp", "tick_span", "tick_interval_hours", "visibility", "illustrations", "image_style")}))
 
 
 def char_pkg(name="Iris Calder", concept="a reporter", **kw):
@@ -408,7 +408,7 @@ def adventure_pkg(**kw):
     content = (f"# PART A: PLAYER-SAFE\n{body}\n\n# PART B: GM ONLY\n## The truth\n{secret}\n## Cast\nNPCs.\n## Places\nPlaces.\n"
                f"## Timeline and clock\nDays.\n## Clue matrix\nClues.\n## Finale\nFinale.\n## Endings\nEndings.\n\n# PART C: IDS\n{secret}")
     d = {"title": "The Quiet Mill", "generation": "full", "era": "1930", "place": "New England", "players": {"min": 1, "max": 3},
-         "recommended": {"tick_span": "day", "tick_interval_hours": 24, "lethality": "high"}, "pace_options": ["slow"], "language": "en",
+         "recommended": {"tick_span": "day", "tick_interval_hours": 24, "lethality": "high"}, "language": "en",
          "summary": "A mill.", "content": content,
          "npcs": [{"id": "npc_miller", "name": "Miller", "role": "owner"}], "locations": [{"id": "loc_mill", "name": "The mill"}]}
     d.update(kw)
@@ -473,8 +473,8 @@ def test_game_package_flow(world):
     assert pkg["task"] == "create_game" and pkg["context"]["defaults"]["lethality"] == "high" and pkg["context"]["defaults"]["language"] == "es"
     assert pkg["context"]["adventure"]["title"] and "player_safe_text" not in pkg["context"]["adventure"]
     assert "PART B" not in json.dumps(pkg)
-    bad = eng.submit_package("p_jorge", pkg["task_id"], game_pkg(lethality="deadly", pace="warp", tick_interval_hours=0))
-    assert bad["accepted"] is False and len(bad["problems"]) == 3
+    bad = eng.submit_package("p_jorge", pkg["task_id"], game_pkg(lethality="deadly", tick_interval_hours=0))
+    assert bad["accepted"] is False and len(bad["problems"]) == 2
     ok = eng.submit_package("p_jorge", pkg["task_id"], game_pkg(lethality="low", title="My run", pvp="none"))
     assert ok["accepted"] is True and ok["game_id"] and ok["setup"]
     game, _ = store.get("game", ok["game_id"])
@@ -613,3 +613,29 @@ def test_resolve_due_defers_ticks_when_time_is_short(world, monkeypatch):
     assert out["results"][0]["reason"].startswith("deferred")
     monkeypatch.setattr(config, "TICK_RESERVE_SECONDS", 0)
     assert eng.resolve_due()["results"][0]["resolved"] is True  # still due, so the next run takes it
+
+
+def test_lethality_defaults_to_high_and_no_pace_setting(world):
+    eng, store, gm, clock = world
+    pkg = eng.create_game("p_jorge", ADV)["package"]
+    assert pkg["context"]["defaults"]["lethality"] == "high" and "pace" not in pkg["context"]["defaults"]
+    assert "pace" not in pkg["submission"]["schema"] and "pace_options" not in pkg["context"]["adventure"]
+    gid = eng.create_game("p_ana", ADV)  # settings given by the package; a game made directly gets the default too
+    assert gid["package"]["context"]["defaults"]["lethality"] == "high"
+
+
+def test_opening_is_owed_until_delivered(world):
+    from server import engine as engine_module
+    from server.apply import Applier
+    eng, store, gm, clock = world
+    gid, cid = start_solo(eng, "p_ana")
+    c, _ = store.get("character", cid)
+    assert c["opening_due"] is True
+    assert "narration_hints.opening" in engine_module.NARRATION_BRIEF and "\U0001F4AC" in engine_module.NARRATION_BRIEF
+    a = Applier.__new__(Applier)
+    a.now, a.touched = "t", set()
+    a.ws = type("W", (), {"touch": lambda self, *x: None})()
+    a.add_inbox({}, c, "own", {"narration_hints": {"opening": False}}, 1)
+    assert c["opening_due"] is True
+    a.add_inbox({}, c, "own", {"narration_hints": {"opening": True}}, 1)
+    assert c["opening_due"] is False
