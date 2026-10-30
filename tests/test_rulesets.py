@@ -98,3 +98,11 @@ def test_reject_delete_and_a_file_wins_over_an_import(eng):
     assert admin.run(eng, "delete_ruleset", {"ruleset_id": "my_system", "force": True})["deleted"] == "my_system"
     with pytest.raises(EngineError):
         admin.run(eng, "approve_ruleset", {"ruleset_id": "fear_itself"})         # a file ruleset is not an imported one
+
+
+def test_bundled_fear_itself_is_valid_and_has_the_supernatural_module_off_by_default():
+    meta, body = files.split_front_matter(open("rulesets/fear_itself.md").read())
+    assert meta["id"] == "fear_itself" and "supernatural" in meta["modules"]
+    problems, _ = tasks.ruleset_checks(meta, body)
+    assert problems == []
+    assert "## 10. Supernatural module" in body and "**Off by default.**" in body
