@@ -88,7 +88,7 @@ A character reaches the game by one of three routes: **generated** with the AI M
 | 11 | Means and kit | Money, transport and kit fit the era and the means. Weapons or gear beyond a plausible small kit are refused. Anything else comes through Preparedness tests. |
 | 12 | Relationships and gaps | One or two relationships and the known gaps written down. Ties between player characters are allowed if both players accept. |
 | 13 | Appearance | Only what the player supplied. Never invent physical details. |
-| 14 | Content | Nothing conflicts with the players' lines and veils or with the truth rule. |
+| 14 | Content | Nothing conflicts with the truth rule. |
 
 **Outcomes.** `pass`; `pass_with_adjustments` (list the smallest changes needed, each needing the player's approval); `fail` (list the violations and the smallest fixes). Never silently change a submitted sheet. The only exception is a plain arithmetic or typing slip with one unambiguous correction, and you still report it. Never raise ratings to be generous. A character starts play only after `pass` and the player's confirmation.
 
@@ -335,7 +335,7 @@ When a collective belief, panic or contagion is present, give each NPC a state. 
 | **Clouded** | Suggestible, tired, inconsistent |
 | **Devout** | Sincerely believes; polite, certain, immovable |
 | **Frenzied** | Acts on the belief with force |
-| **Broken** | Withdrawn, catatonic or self-harming (handled at a restrained level, protocol §12) |
+| **Broken** | Withdrawn, catatonic or self-harming (never with methods, protocol §12) |
 
 Devout and Frenzied NPCs are sincere, not cackling villains. A crowd acts as one only while the leader or the ritual holds it, which gives characters a rational way to break it.
 

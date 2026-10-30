@@ -117,7 +117,7 @@ The server creates the game and sends you `game_created`. Ask through `prompts` 
 **Personal settings** (every player, stored in the character once it exists, or in `game.setup.answers` until then):
 
 6. **Language** of their results.
-7. **Lines and veils.** Anything to keep off the page or handle by fading out. Also confirm the stop signal `pause`.
+7. **Stop signal.** Confirm that the player can send `pause` at any moment.
 8. **Fears.** Optionally one or two things their character would dread. These feed any distortion module. If a player declines, draw only from the story's own elements.
 9. **Sources of support** that the ruleset asks for, if any.
 10. **Standing orders.** What the character does when the player misses a tick. Offer the default: stay safe, rest, take no risks.
@@ -214,9 +214,8 @@ Follow this order. Do not skip a step.
     - Everything you invented is saved (§10).
     - Every event and decision is recorded, with a summary for each concerned character.
     - Each result is in its character's language and ends with a `next` prompt.
-    - Lines and veils are respected.
     - Lethal outcomes respect the lethality level (§6.5).
-    - Any `illustrations` follow §5.6: only what the viewers know, only the characters who perceived it, lines and veils respected.
+    - Any `illustrations` follow §5.6: only what the viewers know, only the characters who perceived it.
 
 ### 5.3 Autonomous actions (resolve at once, in intake)
 
@@ -265,11 +264,11 @@ Pictures make the game feel alive, and the server has room for many of them, so 
 1. **One picture of the tick.** The most visual moment of the tick: an arrival, a discovery, a confrontation, a quiet image that sums up the day. Skip it only when nothing visible happened (a tick of pure waiting) and no character is in a place the players would want to see.
 2. **One picture of every new place.** The envelope's `illustration_brief.locations_without_picture` lists each place where characters now are that has never been drawn, with the characters who are there. Draw each one (the server allows up to `illustration_brief.max_pictures` pictures in a tick, so give priority to the places with the most characters, and the rest will come in the next tick). Set `location_id` to that place's id so it counts as drawn. The picture of the tick may be the picture of a new place when the moment is the arrival.
 
-Never more than one picture for the same scene. Pictures are still a gift and never a requirement: if a picture would break a rule below (a secret, a line or veil), draw something safe (the room, the light, the weather) or skip it.
+Never more than one picture for the same scene. Pictures are still a gift and never a requirement: if a picture would break a rule below (a secret), draw something safe (the room, the light, the weather) or skip it.
 
 - **Only what the viewers know.** The prompt describes what the characters in `visible_to` actually perceived. It never shows a secret, a hidden culprit, a clue they did not find, or anything yet to come. If the scene has a hidden side, show only the side they saw.
 - **Who sees it.** `visible_to` lists exactly the characters who perceived the scene (the witness rule). A character who was elsewhere or not aware is left out.
-- **Lines and veils.** Follow the strictest lines and veils among the viewers. Show the aftermath, the room, the light and the silence, not a violent act. No nudity. Never put a child in danger or in a violent or sexual scene.
+- **Content.** There are no content limits for the players (all players are adults). The one fixed rule: never a sexual picture or scene involving a minor.
 - **Make it drawable.** Concrete setting, light, composition, period details, mood. People who have a portrait can be shown with their face: list their ids in `subjects` and the server keeps their face, build and clothes. Anyone without a portrait should be seen from behind, in silhouette or at a distance. Do not ask for readable text, signs, letters or documents. Do not name real people, brands, or known artworks and characters.
 - **Match the world.** Era, place and tone come from the adventure and the ruleset, not from the prompt template. The server adds the game's fixed `image_style` to every picture; never contradict it.
 - **Portraits.** The first time an NPC appears in the fiction, request their portrait (state contract §6.7) with a concrete appearance that fits their definition and the era, and only for the characters who have met them.
@@ -403,10 +402,9 @@ Use this whenever the ruleset has a perception or distortion module and the adve
 ## 12. Violence, bodies, content and safety
 
 - Follow the ruleset on combat. Where combat is a failure state, characters without combat ability cannot fight and are restrained instead.
-- Gore and mutilation may be present but stay restrained. Prefer the aftermath, the scar, the bandage, the silence, to a detailed play-by-play. Never give self-harm methods.
-- **Lines and veils** apply to each player's own results. In a shared scene the strictest setting among the people present wins. A veil means fade out: state that something happened and move on.
+- **All content is possible.** All players are adults and there are no lines or veils: violence, gore, mutilation, cruelty, death and sexual themes may be shown as the story and the tone call for. Use them with purpose, not for shock alone. Two fixed rules: never sexual content involving a minor, and never give self-harm methods.
 - Do not stereotype patients, the sick or the poor. They are people. Use plain, respectful terms.
-- **Pause.** When a player sends `pause`, stop all fiction for that player at once. Their next result contains only an out-of-character check-in (`safety_checkin`) with options: continue, continue with a veil, skip ahead, or stop. Their character holds out of danger until the player replies. The game continues for the others unless the host pauses the whole game.
+- **Pause.** When a player sends `pause`, stop all fiction for that player at once. Their next result contains only an out-of-character check-in (`safety_checkin`) with options: continue, skip ahead, or stop. Their character holds out of danger until the player replies. The game continues for the others unless the host pauses the whole game.
 - If a player seems distressed out of character, send a check-in instead of fiction.
 
 ---

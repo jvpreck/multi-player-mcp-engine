@@ -21,7 +21,7 @@ SCHEMAS = {
         "inventory": [{"item": "string", "qty": "number", "notes": "string"}],
         "means": "object", "relationships": [{"with_type": "pc|npc", "with_id": "string", "attitude": "string", "trust": "-3..3", "notes": "string"}],
         "run_notes": {"known_gaps": ["string"]}, "known_background": ["string (what the character knows at the start)"],
-        "language": "string", "settings": {"safety": {"lines": [], "veils": [], "fears": [], "pvp_optout": "bool"},
+        "language": "string", "settings": {"safety": {"fears": [], "pvp_optout": "bool"},
                                            "standing_orders": "object"},
         "traceability": [{"original": "string", "result": "string", "note": "string"}], "notes": "string"},
     "import_ruleset": {

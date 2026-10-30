@@ -1163,7 +1163,7 @@ class Engine:
                                    for i, t in enumerate(p.get("known_background") or [])]
         st = p.get("settings") if isinstance(p.get("settings"), dict) else {}
         sf = st.get("safety") if isinstance(st.get("safety"), dict) else {}
-        for k in ("lines", "veils", "fears"):
+        for k in ("fears",):
             if isinstance(sf.get(k), list):
                 c["settings"]["safety"][k] = [x for x in sf[k] if isinstance(x, str)][:10]
         if isinstance(sf.get("pvp_optout"), bool):

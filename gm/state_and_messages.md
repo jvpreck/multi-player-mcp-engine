@@ -213,7 +213,7 @@ An adventure file or a stored adventure defines its own NPCs and locations, with
   "participation": { "role": "host", "status": "active", "joined_tick": 0, "missed_ticks": 0, "last_submitted_tick": 2 },
   "language": "en",
   "settings": {
-    "safety": { "lines": [], "veils": ["graphic injury"], "fears": ["not being believed"], "pvp_optout": false, "stop_signal": "pause" },
+    "safety": { "fears": ["not being believed"], "pvp_optout": false, "stop_signal": "pause" },
     "standing_orders": {
       "hold": "Stay at the lodging, rest, write up notes.",
       "risk_tolerance": "low",
@@ -275,7 +275,7 @@ An adventure file or a stored adventure defines its own NPCs and locations, with
 - `language`: the language of this character's results. It starts as the player's default and can be changed.
 
 **Settings** (everything the player decides about this character in this run)
-- `settings.safety`: lines, veils, fears, `pvp_optout`, `stop_signal`.
+- `settings.safety`: fears, `pvp_optout`, `stop_signal`.
 - `settings.standing_orders`: what the character does when the player is absent, and default choices. Fields: `hold` (short text), `risk_tolerance` (`low`, `medium`, `high`), `perception_check` (`auto` or `believe`, with `anchor` and `spend`), `default_spends` (for example `{ "ability": "Search", "points": 1 }`), `never_do`, `reply_to_messages`. If the ruleset has no perception module, `perception_check` is unused.
 
 **Sheet and run state**
@@ -463,7 +463,7 @@ The `request` object:
 | `decision` | The answer to a decision gate, a replacement prompt or another prompt | `{ "prompt_id": "…", "choice": "…" }` |
 | `free_query` | An out-of-character question | `{ }` |
 | `pause` | The stop signal | `{ }` |
-| `resume` | The player returns | `{ "choice": "continue\|veil\|skip\|stop" }` |
+| `resume` | The player returns | `{ "choice": "continue\|skip\|stop" }` |
 
 If the player's text does not fit any `kind`, treat it as a free query. Plain speech between characters in the same place (`say`) does not reach you: the server delivers it directly (§8.4). You see it later as a `message` with `channel: "in_person"`.
 

@@ -21,7 +21,7 @@ To continue in the same game after a death, pass `replaces_character_id`.
 
 `generate_character(player_key, game_id, route, concept, pregen_id, sheet_text, sheet_json, npc_id, replaces_character_id, changes)`. Use the fields that fit the route. A work package arrives for `generate` and `provided`: follow its steps. In short:
 
-1. Ask the player, in one batch: the concept or occupation, their character's drive and personal goal, anything they want or want to avoid in play (lines, veils, fears), and, for a replacement, whether they want a link to the story.
+1. Ask the player, in one batch: the concept or occupation, their character's drive and personal goal, their character's fears if they want to name any, and, for a replacement, whether they want a link to the story.
 2. Build the sheet from the ruleset text in the package, within its budgets. Never raise a rating to be generous and never invent rules.
 3. Fill the whole record, including a `portrait` (`appearance` and `signature_action`, in English) when the game has illustrations. Use only what the player gave; if they gave nothing, propose a look that fits the concept and era and let them adjust it.
 4. Self-check against the ruleset's checklist, show the player a short summary and make the changes they ask for.

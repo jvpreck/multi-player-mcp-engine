@@ -77,7 +77,7 @@ def character_defaults(game_id, player_id, adventure_id, ruleset_id, character_i
         "replaced_by_character_id": None, "from_npc_id": None,
         "participation": {"role": "player", "status": "active", "joined_tick": 0, "missed_ticks": 0, "last_submitted_tick": None},
         "language": language,
-        "settings": {"safety": {"lines": [], "veils": [], "fears": [], "pvp_optout": False, "stop_signal": "pause"},
+        "settings": {"safety": {"fears": [], "pvp_optout": False, "stop_signal": "pause"},
                      "standing_orders": {"hold": "Stay safe, rest, take no risks.", "risk_tolerance": "low",
                                          "perception_check": {"mode": "auto", "anchor": None, "spend": None},
                                          "default_spends": [], "never_do": [], "reply_to_messages": True}},

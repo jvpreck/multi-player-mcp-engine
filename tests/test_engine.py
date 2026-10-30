@@ -493,7 +493,7 @@ def test_character_package_flow_and_injection_is_dropped(world):
     assert safe and "# PART B" not in safe and "# PART C" not in safe and "The truth (what is really going on)" not in safe
     calls = len(gm.calls)
     evil = char_pkg(gm_only={"drift": 99}, status="active", is_alive=False, inbox=[{"x": 1}], client_sync={"version": 99},
-                    settings={"safety": {"lines": ["gore"]}, "standing_orders": {"hold": "stay", "evil": "x"}},
+                    settings={"safety": {"fears": ["gore"]}, "standing_orders": {"hold": "stay", "evil": "x"}},
                     inventory=[{"item": "press card", "qty": 1}], relationships=[{"with_id": "npc_sam", "attitude": "ally", "trust": 9}])
     r = eng.submit_package("p_jorge", pkg["task_id"], evil)
     assert r["accepted"] is True and len(gm.calls) == calls + 1       # one cross-check by the AI Master
@@ -503,7 +503,7 @@ def test_character_package_flow_and_injection_is_dropped(world):
     assert all("x" not in i for i in c["inbox"])
     assert c["name"] == "Iris Calder" and c["sheet"]["groups"]["action"]["Health"]["cur"] == 8
     assert c["inventory"][0]["item"] == "press card" and c["relationships"][0]["trust"] == 3
-    assert c["settings"]["safety"]["lines"] == ["gore"] and "evil" not in c["settings"]["standing_orders"]
+    assert c["settings"]["safety"]["fears"] == ["gore"] and "evil" not in c["settings"]["standing_orders"]
     assert c["knowledge"]["facts"][0]["confidence"] == "hearsay"
     assert CHECK["payloads"][-1]["generated_locally"] is True and CHECK["payloads"][-1]["route"] == "provided"
     eng.submit_action("p_jorge", gid, "character_confirm", "", cid, {"approved": True})
