@@ -631,7 +631,7 @@ def test_opening_is_owed_until_delivered(world):
     gid, cid = start_solo(eng, "p_ana")
     c, _ = store.get("character", cid)
     assert c["opening_due"] is True
-    assert "narration_hints.opening" in engine_module.NARRATION_BRIEF and "\U0001F4AC" in engine_module.NARRATION_BRIEF
+    assert "narration_hints.opening" in engine_module.NARRATION_BRIEF and "blockquote in bold" in engine_module.NARRATION_BRIEF
     a = Applier.__new__(Applier)
     a.now, a.touched = "t", set()
     a.ws = type("W", (), {"touch": lambda self, *x: None})()
