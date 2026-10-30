@@ -139,7 +139,7 @@ pytest tests
 - **Authentication is a shared connector key plus a secret key per player.** The player key is a bearer secret: whoever holds it is that player. It travels inside the MCP calls the player's Claude makes, so it is as safe as the player's chat. OAuth would be stronger.
 - **Adventure secrets are private only while the token is.** The adventures repository must stay private, and the `GITHUB_TOKEN` must be read-only and limited to it. A player who generates an adventure with their own Claude sees its secrets, by design.
 - **Cross-record writes are not one database transaction.** The server validates everything in memory and saves with optimistic version checks, so a rejected AI response changes nothing, but a crash in the middle of saving could leave records out of step.
-- **Vercel limits.** `maxDuration` is 60 seconds. A tick with many characters and a large thinking budget may need more (Pro plan).
+- **Vercel limits.** `vercel.json` sets `maxDuration` to 300 seconds (the Hobby maximum with Fluid compute). Each model call times out after 100 s (`GEMINI_TIMEOUT_SECONDS`), no new tick starts when less than 110 s of the 240 s budget remain (the game stays due and the next run takes it), and pictures use what is left.
 - **The AI Master is an LLM.** The server enforces structure, ownership of fields, dice, and the lethality guard, but the AI's judgement on secrecy and fairness is not machine-checked. A lite model on a long, rule-dense JSON task is unbenchmarked here, so the models can be changed with `GEMINI_MODEL_TICK` and `GEMINI_MODEL_LIGHT`. The model names `gemini-3.8-flash` and the `medium` thinking level on it were taken from your description and have not been tested against the live API.
 
 

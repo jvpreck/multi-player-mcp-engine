@@ -19,7 +19,7 @@ permissions:
 jobs:
   tick:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 6
     steps:
       - name: Resolve due ticks
         env:
@@ -32,8 +32,13 @@ jobs:
             exit 0
           fi
           code=$(curl -sS -X POST "$SERVER_URL/internal/resolve_tick" \
-            -H "Authorization: Bearer $CRON_SECRET" --max-time 90 -o out.json -w "%{http_code}")
+            -H "Authorization: Bearer $CRON_SECRET" --max-time 320 -o out.json -w "%{http_code}" || true)
           echo "HTTP $code"
+          if [ "$code" = "504" ] || [ "$code" = "000" ]; then
+            # the server ran out of time; a tick left half-done is picked up again by the next run
+            echo "::warning::tick run timed out (HTTP $code); the next run retries"
+            exit 0
+          fi
           if [ "$code" != "200" ]; then
             echo "the tick endpoint did not answer 200"
             exit 1

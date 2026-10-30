@@ -1438,6 +1438,9 @@ class Engine:
         ids = self.store.due_games(iso(self.now()))
         out = []
         for gid in ids:
+            if time.monotonic() - started > config.FUNCTION_BUDGET_SECONDS - config.TICK_RESERVE_SECONDS:
+                out.append({"game_id": gid, "resolved": False, "reason": "deferred: not enough time left in this run"})
+                continue  # stays due; the next scheduler run picks it up
             try:
                 out.append(self.resolve_tick(gid))
             except Exception as e:  # one failing game must not block the others

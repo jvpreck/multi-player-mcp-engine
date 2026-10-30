@@ -95,6 +95,7 @@ class GeminiGM:
             system_instruction=system,
             response_mime_type="application/json",
             thinking_config=types.ThinkingConfig(thinking_level=level),
+            http_options=types.HttpOptions(timeout=config.GEMINI_TIMEOUT_SECONDS * 1000),
         )
         return self._get().models.generate_content(model=model, contents=user, config=cfg).text or ""
 

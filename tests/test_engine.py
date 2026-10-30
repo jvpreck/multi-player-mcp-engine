@@ -597,3 +597,19 @@ def test_seeds_list_without_spoilers_and_generate_from_a_seed(world):
     with pytest.raises(EngineError):
         eng.generate_adventure("p_jorge", seed_id="test_seed", seed_text="my own")
     assert eng.generate_adventure("p_jorge", seed_id="test_seed", generation="emergent")["package"]["context"]["generation"] == "emergent"
+
+
+def test_resolve_due_defers_ticks_when_time_is_short(world, monkeypatch):
+    from server import config
+    eng, store, gm, clock = world
+    out = new_game(eng, "p_jorge", ADV)
+    gid = out["game_id"]
+    a = eng.generate_character("p_jorge", gid, "pregen")["deliveries"][0]["character_id"]
+    eng.submit_action("p_jorge", gid, "character_confirm", "", a, {})
+    clock["t"] += timedelta(hours=25)
+    monkeypatch.setattr(config, "TICK_RESERVE_SECONDS", config.FUNCTION_BUDGET_SECONDS + 1)
+    out = eng.resolve_due()
+    assert out["checked"] == 1 and out["results"][0]["resolved"] is False
+    assert out["results"][0]["reason"].startswith("deferred")
+    monkeypatch.setattr(config, "TICK_RESERVE_SECONDS", 0)
+    assert eng.resolve_due()["results"][0]["resolved"] is True  # still due, so the next run takes it
