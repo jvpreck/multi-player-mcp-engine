@@ -827,16 +827,47 @@ class Engine:
         return rec
 
     # ---- generate_adventure (a work package for the client)
-    def generate_adventure(self, player_id, ruleset_id, seed_text="", document_text="", generation="emergent", language="en"):
+    def _seed_files(self):
+        try:
+            return files.seed_files()
+        except files.AdventureSourceError as e:
+            self.adventure_source_error = str(e)
+            return {}
+
+    def list_seeds(self, player_id):
+        """The adventure seeds a player can choose from, with only the spoiler-free fields. A seed's full text is never listed."""
+        self.adventure_source_error = None
+        seeds = [{"id": k, "title": v["meta"].get("title"), "format": v["meta"].get("format"), "players": v["meta"].get("players"),
+                  "era": v["meta"].get("era"), "ruleset": v["meta"].get("ruleset"), "summary": v["meta"].get("summary")}
+                 for k, v in self._seed_files().items()]
+        extra = {"warning": "The seeds could not be read right now (" + self.adventure_source_error + "). Try again later."} if self.adventure_source_error else {}
+        return {"seeds": seeds, **extra, "next_step": "Show the player the title, format and summary of each seed and let them choose, then call generate_adventure with seed_id. Never show anything else about a seed."}
+
+    def generate_adventure(self, player_id, ruleset_id="", seed_text="", document_text="", generation="", language="en", seed_id=""):
+        seed = None
+        if seed_id:
+            if seed_text or document_text:
+                raise EngineError("give a seed_id, or a seed_text, or a document: only one of them")
+            seed = self._seed_files().get(seed_id)
+            if seed is None:
+                raise EngineError("unknown seed_id. list_seeds shows the available seeds")
+            ruleset_id = ruleset_id or seed["meta"].get("ruleset") or "fear_itself"
+            generation = generation or seed["meta"].get("generation") or "emergent"
+            seed_text = seed["body"].strip()
+        generation = generation or "emergent"
         if ruleset_id not in self.rulesets():
             raise EngineError(f"unknown ruleset {ruleset_id}")
         if not (seed_text or document_text):
             raise EngineError("give a seed or a document")
         if generation not in ("full", "emergent"):
             raise EngineError("generation must be full or emergent")
-        return self.start_task(player_id, "generate_adventure", {
-            "ruleset_id": ruleset_id, "seed_text": seed_text, "document_text": document_text,
-            "generation": generation, "language": language})
+        params = {"ruleset_id": ruleset_id, "seed_text": seed_text, "document_text": document_text,
+                  "generation": generation, "language": language}
+        if seed:
+            m = seed["meta"]
+            params["seed_info"] = {"id": seed_id, "title": m.get("title"), "format": m.get("format"), "players": m.get("players"),
+                                   "era": m.get("era"), "place": m.get("place"), "modules": m.get("modules") or [], "suggested_tone": m.get("tone")}
+        return self.start_task(player_id, "generate_adventure", params)
 
     # ---- create_game
     def create_game(self, player_id, adventure_id, title=None, language=None, settings=None, display_name=None):
@@ -958,7 +989,8 @@ class Engine:
         expires = iso(self.now() + timedelta(hours=config.TASK_TTL_HOURS))
         tid = short("t")
         if kind == "generate_adventure":
-            ctx = tasks.adventure_context(params["ruleset_id"], params["seed_text"], params["document_text"], params["generation"], params["language"], self.rulesets())
+            ctx = tasks.adventure_context(params["ruleset_id"], params["seed_text"], params["document_text"], params["generation"], params["language"], self.rulesets(),
+                                       params.get("seed_info"))
         elif kind == "import_ruleset":
             ctx = tasks.ruleset_context(params["document_text"], params.get("ruleset_id"), self._all_ruleset_ids(), params.get("language") or "en")
             params = dict(params, document_text=f"<{len(params['document_text'])} characters, not stored>")

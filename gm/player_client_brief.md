@@ -23,7 +23,8 @@
 | `register_player` | The player has no key yet. Returns the secret `player_key` once. |
 | `list_games` | The player wants to see their games and the open games they can join. |
 | `list_adventures` | The player wants to see what can be played. |
-| `generate_adventure` | The player gives a seed or a document. Returns a work package (§3). |
+| `list_seeds` | The player wants a ready-made idea. Show only the title, format, players, era and summary of each seed. |
+| `generate_adventure` | The player gives a seed (their own, or a `seed_id` from `list_seeds`) or a document. Returns a work package (§3). |
 | `create_game` | The player starts a game from an adventure. Returns a work package (§3). |
 | `join_game` | The player joins a game by id. |
 | `generate_character` | The player wants a new character. `generate` and `provided` return a work package (§3). `pregen` and `from_npc` act at once. |

@@ -8,6 +8,8 @@ GM_DIR = ROOT / "gm"
 # with a read-only token. ADVENTURES_DIR (a local folder) overrides that, for development and tests only.
 ADVENTURES_REPO = os.environ.get("ADVENTURES_REPO", "jvpreck/rpg_adventures")
 ADVENTURES_REF = os.environ.get("ADVENTURES_REF", "main")
+ADVENTURE_SEEDS_FOLDER = "seeds"  # a sub-folder of the adventures repository; the adventure listing never looks inside it
+ADVENTURE_SEEDS_FOLDER = "seeds"  # a sub-folder of the adventures repository; the adventure listing never looks inside it
 ADVENTURES_CACHE_SECONDS = int(os.environ.get("ADVENTURES_CACHE_SECONDS", "300"))
 ADVENTURES_DIR = Path(os.environ["ADVENTURES_DIR"]) if os.environ.get("ADVENTURES_DIR") else None
 RULESETS_DIR = ROOT / "rulesets"

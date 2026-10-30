@@ -80,12 +80,20 @@ def register(mcp, engine: Engine):
 
     @mcp.tool()
     @_safe
-    def generate_adventure(player_key: str, ruleset_id: str, seed_text: str = "", document_text: str = "",
-                           generation: str = "emergent", language: str = "en") -> dict:
-        """Start generating a new adventure from a short seed (premise, theme, era, place) or from a document. Returns a work package:
-        follow its instructions step by step in the chat, then send the result with submit_package.
-        generation is 'emergent' (a secret seed, the rest is created in play) or 'full' (a complete secret plan)."""
-        return engine.generate_adventure(engine.authenticate(player_key), ruleset_id, seed_text, document_text, generation, language)
+    def generate_adventure(player_key: str, ruleset_id: str = "", seed_text: str = "", document_text: str = "",
+                           generation: str = "", language: str = "en", seed_id: str = "") -> dict:
+        """Start generating a new adventure from a published seed (seed_id, from list_seeds), from a short seed of the player's own
+        (seed_text: premise, theme, era, place) or from a document. Returns a work package: follow its instructions step by step in the chat,
+        then send the result with submit_package. generation is 'emergent' (a secret seed, the rest is created in play) or 'full' (a complete
+        secret plan); leave it empty to use the seed's suggestion, otherwise 'emergent'. ruleset_id may be empty with a seed_id."""
+        return engine.generate_adventure(engine.authenticate(player_key), ruleset_id, seed_text, document_text, generation, language, seed_id)
+
+    @mcp.tool()
+    @_safe
+    def list_seeds(player_key: str) -> dict:
+        """List the published adventure seeds a player can choose from to generate a full adventure. Each has a title, format, suggested
+        number of players, era and a one-line summary without spoilers. Show only those fields to the player."""
+        return engine.list_seeds(engine.authenticate(player_key))
 
     @mcp.tool()
     @_safe

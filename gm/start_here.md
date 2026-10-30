@@ -21,6 +21,7 @@ title: Start here
 | join a friend's game or see their games | `list_games`, `join_game` |
 | start a new game | `get_guide("create-game")`, then `create_game` |
 | make a character | `get_guide("create-character")`, then `generate_character` |
+| pick a ready-made idea for a new adventure | `list_seeds` (spoiler-free summaries), then `generate_adventure` with `seed_id` |
 | write a new adventure from an idea or a document | `get_guide("generate-adventure")`, then `generate_adventure` |
 | play a game system the server does not have, from a document | `get_guide("import-ruleset")`, then `import_ruleset` (the host must approve it) |
 | do something in a game, or ask what happened | `get_results` first, then `submit_action` |

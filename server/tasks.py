@@ -85,9 +85,16 @@ def character_context(game, adventure, route, provided_sheet, replaces, other_na
     }
 
 
-def adventure_context(ruleset_id, seed_text, document_text, generation, language, rulesets=None):
+def adventure_context(ruleset_id, seed_text, document_text, generation, language, rulesets=None, seed_info=None):
     rs = files.rulesets() if rulesets is None else rulesets
-    return {"ruleset_id": ruleset_id, "ruleset_text": prompt.ruleset_text(ruleset_id, rs),
+    extra = {}
+    if seed_info:
+        extra = {"seed_info": seed_info,
+                 "seed_notice": "seed_text is a published seed: it is FULL OF SPOILERS and is for you only. Do not quote, summarize or hint at it in the chat. "
+                                "Tell the player only the title, the premise, the era and the player count. Build a complete adventure from it in the module "
+                                "format, in your own words, and make it playable by the number of players the seed suggests. If seed_info.modules lists the "
+                                "supernatural module, switch it on in the adventure's setup parameters (ruleset section 10) and state in Part B what is real."}
+    return {**extra, "ruleset_id": ruleset_id, "ruleset_text": prompt.ruleset_text(ruleset_id, rs),
             "oracles_text": files.split_front_matter(files.gm_file("oracles.md"))[1],
             "dice": make_dice(60, 30, 30), "seed_text": seed_text or None, "document_text": document_text or None,
             "generation": "import" if document_text else generation, "language": language,

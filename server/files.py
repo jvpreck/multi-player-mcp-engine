@@ -60,8 +60,12 @@ class AdventureSourceError(Exception):
 _cache = {"at": 0.0, "key": None, "data": {}}
 
 
+_seed_cache = {"at": 0.0, "key": None, "data": {}}
+
+
 def clear_adventure_cache():
     _cache.update({"at": 0.0, "key": None, "data": {}})
+    _seed_cache.update({"at": 0.0, "key": None, "data": {}})
 
 
 def _github_get(url: str, raw: bool = False) -> bytes:
@@ -110,6 +114,44 @@ def adventure_files():
             return _cache["data"]
         raise
     _cache.update({"at": now, "key": key, "data": data})
+    return data
+
+
+def _seeds_from_github() -> dict:
+    repo, ref = config.ADVENTURES_REPO, urllib.parse.quote(config.ADVENTURES_REF)
+    base = f"https://api.github.com/repos/{repo}/contents/{config.ADVENTURE_SEEDS_FOLDER}"
+    try:
+        listing = json.loads(_github_get(f"{base}?ref={ref}"))
+    except AdventureSourceError:
+        return {}  # no seeds folder (or not readable): there are simply no seeds
+    out = {}
+    for item in listing if isinstance(listing, list) else []:
+        name = item.get("name", "")
+        if item.get("type") != "file" or not name.endswith(".md") or name.lower() == "readme.md":
+            continue
+        text = _github_get(f"{base}/{urllib.parse.quote(name)}?ref={ref}", raw=True).decode("utf-8")
+        r = _parse(name, text, f"rpg_adventures/{config.ADVENTURE_SEEDS_FOLDER}")
+        if r:
+            out[r[0]] = r[1]
+    return out
+
+
+def seed_files():
+    """Adventure seeds by id: files in the `seeds/` folder of the adventures repository. A seed's body has spoilers (it is given only to the
+    client that writes the adventure); its front matter `summary` is the spoiler-free line players choose from."""
+    if config.ADVENTURES_DIR:
+        return _list(config.ADVENTURES_DIR / config.ADVENTURE_SEEDS_FOLDER)
+    key = (config.ADVENTURES_REPO, config.ADVENTURES_REF)
+    now = time.time()
+    if _seed_cache["key"] == key and now - _seed_cache["at"] < config.ADVENTURES_CACHE_SECONDS:
+        return _seed_cache["data"]
+    try:
+        data = _seeds_from_github()
+    except AdventureSourceError:
+        if _seed_cache["key"] == key and _seed_cache["data"]:
+            return _seed_cache["data"]
+        raise
+    _seed_cache.update({"at": now, "key": key, "data": data})
     return data
 
 

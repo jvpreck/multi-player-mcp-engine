@@ -9,7 +9,7 @@ Use this when the player wants a new adventure from an idea, or wants to convert
 ## Before you call
 
 1. Make sure you have the player's `player_key`.
-2. Call `list_adventures` to see the available rulesets (`ruleset_id`) and what already exists. Do not write a duplicate of an existing adventure if the player would be happy with that one.
+2. If the player has no idea yet, call `list_seeds` and show them **only** each seed's title, format, suggested players, era and summary. A seed's full text is full of spoilers and is given only to you inside the work package: never quote it, summarize it or hint at it. Then call `generate_adventure(player_key, seed_id=...)` (the ruleset and generation mode come from the seed unless the player says otherwise). Otherwise call `list_adventures` to see the available rulesets (`ruleset_id`) and what already exists. Do not write a duplicate of an existing adventure if the player would be happy with that one.
 3. Decide with the player (one batch of questions, offer defaults):
    - **Seed:** premise, theme, era, place, tone. A short paragraph is enough.
    - **Document:** if the player pastes an existing adventure, you will convert it without changing its facts.
@@ -19,7 +19,7 @@ Use this when the player wants a new adventure from an idea, or wants to convert
 
 ## The call
 
-`generate_adventure(player_key, ruleset_id, seed_text, document_text, generation, language)`. Give `seed_text` or `document_text`, not both.
+`generate_adventure(player_key, ruleset_id, seed_text, document_text, generation, language, seed_id)`. Give one of `seed_id` (a published seed), `seed_text` (the player's own idea) or `document_text`.
 
 It returns a **work package**. Its `instructions` (from the server) are the authoritative step-by-step procedure: read the ruleset and oracles, build the truth first with the server's dice stream, then the hook, antagonist, NPCs, locations and clock, then self-check. Follow them.
 

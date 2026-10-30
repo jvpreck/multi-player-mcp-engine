@@ -578,3 +578,22 @@ def test_envelope_hides_other_characters_knowledge_in_intake(world):
     other = next(c for c in env["characters"] if c["id"] == b)
     assert "knowledge" in mine and "knowledge" not in other and "inbox" not in mine
     assert "dice" in env and len(env["dice"]["d6"]) >= 60
+
+
+# ---------------------------------------------------------------- adventure seeds
+def test_seeds_list_without_spoilers_and_generate_from_a_seed(world):
+    eng = world[0]
+    out = eng.list_seeds("p_jorge")
+    assert [s["id"] for s in out["seeds"]] == ["test_seed"]
+    s = out["seeds"][0]
+    assert s["summary"].startswith("Four neighbours") and set(s) == {"id", "title", "format", "players", "era", "ruleset", "summary"}
+    assert "Hale" not in str(out) and "baker" not in str(out)                       # the body never leaves the server in the listing
+    pkg = eng.generate_adventure("p_jorge", seed_id="test_seed")["package"]
+    ctx = pkg["context"]
+    assert ctx["ruleset_id"] == "fear_itself" and ctx["generation"] == "full" and "Ms. Hale" in ctx["seed_text"]   # the seed's own suggestion
+    assert ctx["seed_info"]["modules"] == ["supernatural"] and "SPOILERS" in ctx["seed_notice"]
+    with pytest.raises(EngineError):
+        eng.generate_adventure("p_jorge", seed_id="nope")
+    with pytest.raises(EngineError):
+        eng.generate_adventure("p_jorge", seed_id="test_seed", seed_text="my own")
+    assert eng.generate_adventure("p_jorge", seed_id="test_seed", generation="emergent")["package"]["context"]["generation"] == "emergent"
