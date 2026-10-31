@@ -145,6 +145,8 @@ The same player may create other characters in other games. A character belongs 
 
 Seed state from the adventure (§16.2). Every adventure begins with a slow start: tick 1 opens with the adventure's opening scene, never in the middle of the action. Give each character an opening suited to their own hook.
 
+**Unclaimed pregenerated characters stay in the story.** For each id in the envelope's `unclaimed_pregenerated`, create an NPC (definition with `pregen_id` and `main: false`, and its state) from the adventure's Part A sheet and place them as an ordinary member of the world or a companion of the party, played from their own goals and never against the players. They may be claimed later by a new player (§4.5), who then continues them as a character. Mark the antagonist, the anchor NPCs and anyone the plot cannot lose as `main: true` when you create them, so they are never offered.
+
 **The opening narration.** Each character has `opening_due: true` until you deliver their opening. The first result you give a character must be extensive. Put in its `facts`, and set `narration_hints.opening` to `true` (this clears `opening_due`): (1) the **setting**: the exact place, the year and season, the hour, and a brief historical or social background that bears on the adventure (only what the players may know, never Part B); (2) the **character**: their background, profession, how they look, what drives them, what they care about and fear, and their current situation; (3) the **opening scene** and what they can do first. Use the character record and Part A only, and keep every secret. The server queues the character's portrait when the game begins (if illustrations are on). Proposing the first scene picture is also welcome.
 
 ### 4.4 Ticks, epilogue, close
@@ -153,7 +155,7 @@ Ticks run as §5 says. The adventure's finale may switch the game to crisis tick
 
 ### 4.5 Late joiners
 
-A player who joins after `active` begins gets a character through the same routes. Design a hook that brings them into the story within one or two ticks, using the adventure's hook variants if it has them. Scale the character as the ruleset says. The late joiner knows only what a newcomer would know.
+A player who joins after `active` begins gets a character through the same routes, and one more: **taking over an NPC**. The envelope lists the NPCs a newcomer may take in `takeover_options` (name, role, trait; never a `main` NPC, never one nobody in the party has met unless it is an unclaimed pregenerated character) and the pregenerated characters nobody has chosen in `unclaimed_pregenerated`. In your reply to `join` offer: a new character, a free pregenerated one, an NPC from `takeover_options`, or watching. The route is `from_npc` with the `npc_id`; the server rejects anything else. The new character starts with only what that NPC knew and held; the NPC stops acting as an NPC (set `npc_state.controlled_by_character_id` when the player confirms) and the party keeps playing without pause. Design a hook that brings them into the story within one or two ticks, using the adventure's hook variants if it has them. Scale the character as the ruleset says. The late joiner knows only what a newcomer would know.
 
 ---
 
@@ -307,7 +309,7 @@ In every level:
 
 1. Set `is_alive: false`, `status: "dead"`, and `death` (`tick`, `day`, `block`, `cause`, `summary`) in the character. Record an event and a decision if a choice led to it. Present it with weight in that player's results, and let witnesses see it through the witness rule.
 2. Resolve what happens to the people and objects at stake: the body, the evidence, the items the character carried, the debts and promises. The dead character's items stay in the world.
-3. Add a `replacement` prompt to that player's result (state contract §3.8). Offer: a new generated character, a pregenerated one that is still free, one of the NPCs with `available_as_replacement: true`, or leaving the game. In solo play, also offer a debrief or a restart.
+3. Add a `replacement` prompt to that player's result (state contract §3.8). Offer: a new generated character, a pregenerated one that is still free, an NPC from `takeover_options`, or leaving the game. In solo play, also offer a debrief or a restart.
 4. The player continues in the **same game run** with the new character, who arrives in the fiction through a hook you design within one or two ticks. The new character is a new record. It does not inherit knowledge, items or relationships. A character from an NPC starts with what the NPC knew and held (the NPC stops acting as an NPC).
 5. Until the player answers, the dead character's slot is `sidelined`. The player gets only out-of-character messages.
 6. Do not silently reverse a death.

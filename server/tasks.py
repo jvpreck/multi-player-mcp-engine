@@ -39,7 +39,8 @@ SCHEMAS = {
         "content": "string (markdown with # PART A, # PART B, # PART C)",
         "seed": "object (emergent only: truth, hook, stake, antagonist, clock_ticks, anchor_npcs[4], first_place, opening_handout)",
         "npcs": [{"id": "npc_...", "name": "string", "role": "string", "trait": "string", "goal": "string", "secret": "string",
-                  "base_stats": "object", "base_inventory": "array", "schedule": "string"}],
+                  "base_stats": "object", "base_inventory": "array", "schedule": "string",
+                  "main": "bool (true for the antagonist, the anchor NPCs and anyone the plot cannot lose: a late joiner can never take them over)"}],
         "locations": [{"id": "loc_...", "name": "string", "zone": "string", "past_detail": "string", "features": ["string"], "exits": ["loc_..."]}],
         "pregenerated_ids": ["string"], "dice_used": {"d6": "int", "d10": "int", "d20": "int"}, "notes": "string"},
     "create_game": {

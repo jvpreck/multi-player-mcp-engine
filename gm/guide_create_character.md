@@ -13,7 +13,7 @@ A character is needed to play. Each player has one character per game. Use this 
 | `generate` | Build a new character with the player | Work package |
 | `provided` | The player pastes their own sheet, you convert it to this ruleset and the server checks it | Work package |
 | `pregen` | Pick a pregenerated character (give `pregen_id`) | Acts at once |
-| `from_npc` | Replacement only: continue as an available NPC (give `npc_id`) | Acts at once |
+| `from_npc` | Take over an NPC the party has met or an unclaimed pregenerated character who is in the story as an NPC (give `npc_id`; call `list_takeovers` first). For a late joiner or a replacement. Main characters of the adventure are never available | Acts at once |
 
 To continue in the same game after a death, pass `replaces_character_id`.
 

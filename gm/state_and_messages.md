@@ -342,7 +342,7 @@ An adventure file or a stored adventure defines its own NPCs and locations, with
 
 - `npc_state.npc_id` and `location_state.location_id` refer to the id defined by the adventure, or to a fixed `npc` or `location` record (§3.3). Create the state record when the NPC or place first matters.
 - `npc_state.stats` holds the current values (the fixed `base_stats` are in the definition). `status`: `active`, `missing`, `hurt`, `dead`, `gone`, `detained`.
-- `available_as_replacement`: `true` when this NPC could become a player's new character (§3.8). `controlled_by_character_id` is set when a character was built from this NPC. The NPC then stops acting as an NPC.
+- `main` (on the `npc` definition, default `false`; also read from `npc_state`): `true` for the NPCs the plot cannot lose (the antagonist, the anchor NPCs, the central helper or victim, anyone the adventure marks as main). A main NPC is never offered for takeover. `pregen_id` (on the definition or the state) marks an NPC who is an unclaimed pregenerated character of the adventure. The server lists in `takeover_options` every NPC a player may take over: not main, `active` or `hurt`, not taken, and either a `pregen_id` NPC or met by a character (`met_by`). `available_as_replacement` is a hint only: it no longer limits who can be taken. `controlled_by_character_id` is set when a character was built from this NPC. The NPC then stops acting as an NPC.
 - Visible to a character: `name`, `role`, `trait` of the definition, and only what that character has seen or learned. Everything else is GM-only.
 - Every NPC and place you create in play gets **both** a fixed definition (`npc`, `location`, scoped to the game) and a run state.
 
@@ -422,7 +422,7 @@ One record per game and tick, with the actions requested by **all** characters. 
 - When a character dies, you set `is_alive: false` and `death` (§3.5), write the death as an event, and add a prompt of type `replacement` to that player's result, with these options:
   1. **A new character** generated with you or built by the player (the `character_submission` route; set `replaces_character_id` to the dead character).
   2. **A pregenerated character** the adventure offers, if one is unclaimed.
-  3. **An NPC** whose `npc_state.available_as_replacement` is `true`. Offer only NPCs the player's dead character could plausibly have met or that are free, friendly and not essential to the plot. List them by name and role, with no GM-only detail.
+  3. **An NPC** from the envelope's `takeover_options` (never a `main` NPC). Prefer NPCs the player's dead character could plausibly have met or that are free, friendly and not essential to the plot. List them by name and role, with no GM-only detail.
   4. **Leave the game.**
 - The replacement is a **new** `character` record in the same game run. It does not inherit the dead character's knowledge, inventory or relationships. A character built from an NPC starts with only what that NPC knew (`knows`) and the NPC's relationships and inventory. The NPC's `npc_state` gets `controlled_by_character_id`, and the NPC no longer acts by itself.
 - The new character arrives in the fiction within one or two ticks, through a hook you design. The game continues without pause for the other players.

@@ -97,6 +97,14 @@ def register(mcp, engine: Engine):
 
     @mcp.tool()
     @_safe
+    def list_takeovers(player_key: str, game_id: str) -> dict:
+        """List the NPCs a player of a running game may take over as their character (a late joiner, or a player whose character died): unclaimed
+        pregenerated characters and other NPCs the party has met, never the adventure's main characters. Show only name, role and trait. To take one,
+        call generate_character with route 'from_npc' and its npc_id."""
+        return engine.list_takeovers(engine.authenticate(player_key), game_id)
+
+    @mcp.tool()
+    @_safe
     def import_ruleset(player_key: str, document_text: str, ruleset_id: str = "", language: str = "en") -> dict:
         """Convert a game system from a document the player provides (pasted text of the rules) into a ruleset for this engine. Returns a
         work package: follow its steps in the chat, then send the result with submit_package. The new ruleset is stored as pending and

@@ -66,7 +66,7 @@ Claude can answer some things without asking the server: your stats, inventory a
 - **Playing together.** Players are separate people at separate times. Your character knows only what they have seen or been told in the story. Other players' characters can be in the same place: you will see what they do in front of you, you can talk to them directly, and what you do may be seen by them. Secrets between characters stay secret unless the story shares them.
 - **Playing alone.** When you are the only player, the tick closes as soon as you have used the time you intend to use, so the game moves at your own pace.
 - **If you are away.** If you do not send anything in a tick, your character follows your standing orders, or holds back and stays safe. After a few missed ticks you are marked away and the character keeps following your standing orders. You can come back at any time and carry on.
-- **Late joiners.** A new player can join a running game. The Master finds a natural way to bring them into the story.
+- **Late joiners.** A new player can join a running game. They can create a character, pick a pregenerated one that is still free, or **take over an NPC** the party has met (never a main character of the adventure). Pregenerated characters nobody chose stay in the story as NPC companions and can be claimed later this way. The Master finds a natural way to bring them into the story.
 
 ## [autonomous] What you can do without waiting
 

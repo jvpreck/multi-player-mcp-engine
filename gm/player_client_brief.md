@@ -29,6 +29,7 @@
 | `generate_adventure` | The player gives a seed (their own, or a `seed_id` from `list_seeds`) or a document. Returns a work package (§3). |
 | `create_game` | The player starts a game from an adventure. Returns a work package (§3). |
 | `join_game` | The player joins a game by id. |
+| `list_takeovers` | A late joiner (or a player whose character died) wants to continue as an NPC. Lists the NPCs that can be taken (name, role, trait only). Then `generate_character` with `route: from_npc` and the `npc_id`. |
 | `generate_character` | The player wants a new character. `generate` and `provided` return a work package (§3). `pregen` and `from_npc` act at once. |
 | `import_ruleset` | The player has a game system document and wants to play it. Returns a work package; the ruleset waits for the host's approval. |
 | `submit_package` | Send back a finished work package. |

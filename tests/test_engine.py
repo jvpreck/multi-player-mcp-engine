@@ -639,3 +639,55 @@ def test_opening_is_owed_until_delivered(world):
     assert c["opening_due"] is True
     a.add_inbox({}, c, "own", {"narration_hints": {"opening": True}}, 1)
     assert c["opening_due"] is False
+
+
+def _add_npc(eng, store, gid, nid, name, met_by=(), main=None, pregen_id=None, status="active"):
+    ws = eng._ws()
+    d = {"id": nid, "scope": {"adventure_id": None, "game_id": gid}, "name": name, "role": "clerk", "trait": "stooped", "secret": "hides a body"}
+    if main is not None:
+        d["main"] = main
+    if pregen_id:
+        d["pregen_id"] = pregen_id
+    ws.put("npc", f"{gid}:{nid}", d)
+    ws.put("npc_state", f"{gid}:{nid}", {"npc_id": nid, "game_id": gid, "status": status, "met_by": list(met_by)})
+    ws.commit()
+
+
+def test_late_joiner_can_take_over_a_non_main_npc(world):
+    eng, store, gm, clock = world
+    gid, cid = start_solo(eng, "p_ana")
+    _add_npc(eng, store, gid, "npc_boss", "The Boss", met_by=[cid], main=True)           # main: never offered
+    _add_npc(eng, store, gid, "npc_hidden", "Unmet", met_by=[])                          # nobody has met them
+    _add_npc(eng, store, gid, "npc_dead", "Late Mr Dead", met_by=[cid], status="dead")
+    _add_npc(eng, store, gid, "npc_clerk", "Mr Clerk", met_by=[cid])
+    _add_npc(eng, store, gid, "npc_pregen", "Pat Pregen", pregen_id="pregen_two")        # unclaimed pregenerated character, in the story as an NPC
+    eng.join_game("p_jorge", gid)
+    out = eng.list_takeovers("p_jorge", gid)["takeovers"]
+    assert {t["npc_id"] for t in out} == {"npc_clerk", "npc_pregen"}
+    assert all(set(t) == {"npc_id", "name", "role", "trait", "pregenerated"} for t in out) and "hides a body" not in json.dumps(out)
+    for bad in ("npc_boss", "npc_hidden", "npc_dead", "npc_nobody"):
+        with pytest.raises(EngineError):
+            eng.generate_character("p_jorge", gid, "from_npc", npc_id=bad)
+    r = eng.generate_character("p_jorge", gid, "from_npc", npc_id="npc_pregen")
+    new = r["deliveries"][0]["character_id"]
+    c, _ = store.get("character", new)
+    assert c["from_npc_id"] == "npc_pregen" and c["origin"] == "from_npc" and c["pregen_id"] == "pregen_two" and c["player_id"] == "p_jorge"
+    # nobody else can take the same NPC, and the list no longer offers it
+    eng.join_game("p_third", gid)
+    assert {t["npc_id"] for t in eng.list_takeovers("p_third", gid)["takeovers"]} == {"npc_clerk"}
+    with pytest.raises(EngineError):
+        eng.generate_character("p_third", gid, "from_npc", npc_id="npc_pregen")
+    # a player who already has a live character cannot take another
+    with pytest.raises(EngineError):
+        eng.generate_character("p_ana", gid, "from_npc", npc_id="npc_clerk")
+
+
+def test_envelope_lists_takeovers_and_unclaimed_pregenerated(world):
+    eng, store, gm, clock = world
+    gid, cid = start_solo(eng, "p_ana")
+    _add_npc(eng, store, gid, "npc_clerk", "Mr Clerk", met_by=[cid])
+    eng.join_game("p_jorge", gid)
+    env = gm.calls[-1][1]
+    assert [t["npc_id"] for t in env["takeover_options"]] == ["npc_clerk"] and all("pregen_id" not in t for t in env["takeover_options"])
+    claimed = store.get("character", cid)[0].get("pregen_id")
+    assert claimed == "pregen_test_pc" and "unclaimed_pregenerated" not in env       # the only pregenerated character is taken

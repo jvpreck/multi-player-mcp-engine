@@ -173,6 +173,11 @@ class Engine:
         brief = self._illustration_brief(ws, game, chars) if mode == "resolve_tick" else None
         if brief:
             env["illustration_brief"] = brief
+        if game["phase"] == "active":
+            env["takeover_options"] = [{k: v for k, v in t.items() if k != "pregen_id"} for t in self._takeable_npcs(ws, game)]
+        pre = self._unclaimed_pregenerated(ws, game, adventure)
+        if pre:
+            env["unclaimed_pregenerated"] = pre
         if game["phase"] in ("setup", "characters"):
             env["available_adventures"] = self.adventure_catalog(None)
             env["available_rulesets"] = [{"id": k, "title": v["meta"].get("title")} for k, v in self.rulesets().items()]
@@ -453,6 +458,45 @@ class Engine:
                     continue
             rec["visible_to"] = sorted(set(rec["visible_to"]) | set(vis))
             ws.touch("image", rec["id"])
+
+    # -- taking over NPCs (late joiners and replacements)
+    def _takeable_npcs(self, ws, game):
+        """NPCs a player may take over as their character: not a main NPC of the adventure (`main` on the definition or the state), alive and
+        free (active or hurt), not already taken, and already part of the players' world (an unclaimed pregenerated character, or an NPC some
+        character has met). Only player-safe fields (name, role, trait) are ever listed."""
+        gid = game["id"]
+        defs = {n["id"]: n for n in ws.find("npc", adventure_id=game["adventure_id"]) + ws.find("npc", game_id=gid) if n.get("id")}
+        taken = {c.get("from_npc_id") for c in ws.find("character", game_id=gid)
+                 if c.get("from_npc_id") and c.get("is_alive", True) and c.get("status") not in ("gone", "dead")}
+        out = []
+        for ns in ws.find("npc_state", game_id=gid):
+            nid = ns.get("npc_id")
+            d = defs.get(nid)
+            if not d or d.get("main") is True or ns.get("main") is True:
+                continue
+            if ns.get("status") not in ("active", "hurt") or ns.get("controlled_by_character_id") or nid in taken:
+                continue
+            pregen_id = d.get("pregen_id") or ns.get("pregen_id")
+            if not (pregen_id or ns.get("met_by")):
+                continue
+            out.append({"npc_id": nid, "name": d.get("name"), "role": d.get("role"), "trait": d.get("trait"), "pregenerated": bool(pregen_id),
+                        "pregen_id": pregen_id})
+        return out
+
+    def _unclaimed_pregenerated(self, ws, game, adv):
+        claimed = {c.get("pregen_id") for c in ws.find("character", game_id=game["id"]) if c.get("pregen_id")}
+        return [p for p in (adv.get("pregenerated") or []) if p not in claimed]
+
+    def list_takeovers(self, player_id, game_id):
+        ws = self._ws()
+        game = self._game(ws, game_id)
+        if not any(r["player_id"] == player_id for r in game["roster"]):
+            raise EngineError("join the game first")
+        if game["phase"] != "active":
+            return {"takeovers": [], "note": "NPCs can be taken over once the game is running."}
+        return {"takeovers": [{k: v for k, v in t.items() if k != "pregen_id"} for t in self._takeable_npcs(ws, game)],
+                "note": "Offer these by name, role and trait only. A player without a character, or whose character is dead, can take one over "
+                        "(generate_character with route from_npc and npc_id). Main characters of the adventure are never listed."}
 
     # -- automatic pictures: the server notices a new place or a first meeting itself, so it does not depend on the AI Master remembering
     def _met_map(self, ws, game_id):
@@ -1088,12 +1132,12 @@ class Engine:
                 if cur.get("status") not in ("draft", "validated"):
                     raise EngineError("this player already has a character in this game; replace it only after it dies or is out of play")
                 return cur
+        taken_npc = None
         if route == "from_npc":
-            if not replaces:
-                raise EngineError("an NPC can only become a character as a replacement")
-            ns = ws.get("npc_state", state_key("npc_state", game["id"], payload.get("npc_id")))
-            if not ns or not ns.get("available_as_replacement"):
-                raise EngineError("that NPC is not available")
+            taken_npc = next((t for t in self._takeable_npcs(ws, game) if t["npc_id"] == payload.get("npc_id")), None)
+            if taken_npc is None:
+                raise EngineError("that NPC is not available to take over (main characters of the adventure, NPCs not yet met and NPCs already "
+                                  "taken cannot be chosen); call list_takeovers")
         cid = short("c")
         c = ap.character_defaults(game["id"], player["id"], game["adventure_id"], game["ruleset_id"], cid,
                                   language=player.get("language", "en"))
@@ -1106,6 +1150,10 @@ class Engine:
             game["roster_history"].append({"player_id": player["id"], "character_id": replaces, "replaced_by": cid})
         if route == "from_npc":
             c["from_npc_id"] = payload.get("npc_id")
+            if taken_npc.get("pregen_id"):
+                c["pregen_id"] = taken_npc["pregen_id"]
+        elif route == "pregen" and payload.get("pregen_id"):
+            c["pregen_id"] = str(payload["pregen_id"])[:80]
         ws.put("character", cid, c)
         roster["character_id"] = cid
         return c

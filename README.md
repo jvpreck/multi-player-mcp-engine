@@ -54,6 +54,7 @@ To add a ruleset, drop a markdown file with front matter into `rulesets/`. To ad
 | `register_player` | Creates a player and returns their **secret player key**, once |
 | `list_games` | The player's games and the open games with free seats |
 | `list_adventures` | Adventures (files and the player's generated ones) and rulesets |
+| `list_takeovers` | The NPCs a late joiner (or a player whose character died) can take over: not main characters, already part of the players' world, or unclaimed pregenerated characters. `generate_character(route="from_npc", npc_id=...)` takes one. |
 | `list_seeds` | Published adventure seeds (a spoiler-free summary each). `generate_adventure(seed_id=...)` writes a full adventure from one. The seeds live in the `seeds/` folder of the private adventures repository |
 | `generate_adventure` | Returns a **work package** to write a new adventure locally (from a seed or a document) |
 | `create_game` | Returns a work package to choose the game settings (lethality, tick, party size) locally |
