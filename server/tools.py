@@ -173,8 +173,8 @@ def register(mcp, engine: Engine):
     @_safe
     def get_image(player_key: str, game_id: str, image_id: str, inline: bool = False):
         """One picture of the story. By default returns a fresh short-lived link to give the player (it expires after a few minutes; call
-        again for a new one). If your client can display images returned by a tool, pass inline=true to get the picture itself, shown with
-        its caption instead of a link. If the player sees nothing, use the link. Never post a link anywhere shared."""
+        again for a new one). Always present pictures to the player as this link, written [Illustration: caption](url). Pass inline=true only
+        when the player explicitly asks to see the picture itself in the chat. Never post a link anywhere shared."""
         pid = engine.authenticate(player_key)
         if not inline:
             return engine.get_image(pid, game_id, image_id)

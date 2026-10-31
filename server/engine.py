@@ -773,7 +773,7 @@ class Engine:
                 "link_text": "Illustration: " + (im.get("caption") or "").strip(),
                 "note": f"Show this as a markdown link for the player to open in the browser, [link_text](url): the link text is a caption of what the picture shows, starting with \"Illustration: \". It stops working after {ttl // 60} minutes, "
                         "and the player can ask for the picture again at any time to get a new link. Do not post it anywhere shared. "
-                        "If your client can display images, call get_image again with inline=true to show the picture itself."}
+                        "Always give pictures as this link; use inline=true only if the player asks to see the picture itself in the chat."}
 
     def get_image_data(self, player_id, game_id, image_id):
         """The picture itself (a JPEG, reduced for chat) for clients that can display images returned by a tool. Returns (info, bytes);

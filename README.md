@@ -151,7 +151,7 @@ When a client connects, the MCP handshake carries short `instructions` (`gm/mcp_
 
 ## Pictures in other clients
 
-`get_image` returns a short-lived link by default. With `inline=true` it returns the picture itself as an MCP image block (a JPEG reduced to `IMAGE_INLINE_SIZE`, default 768 px, with the caption as text), for clients that display images returned by tools. The client brief tells the model to use `inline=true` when its client can show images and to fall back to the link if the player sees nothing. Access rules are identical for both.
+`get_image` returns a short-lived link by default. With `inline=true` it returns the picture itself as an MCP image block (a JPEG reduced to `IMAGE_INLINE_SIZE`, default 768 px, with the caption as text), for clients that display images returned by tools. Pictures are always presented as links, written `[Illustration: caption](url)`; the client brief tells the model to use `inline=true` only when the player explicitly asks to see the picture in the chat. Access rules are identical for both.
 
 ## Rulesets
 
