@@ -1,0 +1,11 @@
+name = "ai-master-tick"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+# Every 5 minutes. The free plan allows 5 cron triggers per account.
+[triggers]
+crons = ["*/5 * * * *"]
+
+# Secrets (never put them in this file):
+#   npx wrangler secret put SERVER_URL
+#   npx wrangler secret put CRON_SECRET

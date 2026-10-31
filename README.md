@@ -85,6 +85,8 @@ The free tier gives a strong model few requests (about 20 a day, 5 a minute) and
 
 ## Illustrations
 
+Pictures are drawn during the player's own call (a character confirmation, an action or fetching results), up to `INLINE_IMAGE_SECONDS` (default 40), so they are listed in the same result; the result carries `picture_seconds` to show what that added. The server also queues, by itself, a picture of each place a character reaches for the first time and a portrait of each NPC met for the first time (`AUTO_PICTURES_PER_RESPONSE`, default 3), writing the prompt with a light model call from player-safe facts only.
+
 Each game has a setting `illustrations` (`on` by default when the server can draw pictures, `off` otherwise; chosen when the game is created, or later by the game's host with `set_game_options`). It is only offered when the server has the image provider configured.
 
 - **Who asks for a picture.** Only the AI Master, in a tick response, as `illustrations: [{prompt, caption, visible_to}]` (state contract §6.7, protocol §5.6). A bad proposal is dropped silently, so a picture can never block a tick.

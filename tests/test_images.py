@@ -42,9 +42,17 @@ class FakeProvider:
 
 
 PROPOSALS = {"items": None, "portraits": [], "hack_style": False}
+AUTO = {"on": False, "calls": []}  # answers of the server's own picture-prompt calls
 
 
 def gm_rule(env, n):
+    if env.get("mode") == "auto_picture":
+        AUTO["calls"].append(env)
+        if not AUTO["on"]:
+            return {"status": "ok"}
+        if env["task"] == "place":
+            return {"status": "ok", "prompt": "A narrow lamp-lit street in the rain, brick houses, wet cobbles, wide shot, 1925", "caption": "The street at night"}
+        return {"status": "ok", "appearance": "A stooped man in his sixties, grey whiskers, a worn black coat and a watch chain", "signature_action": "polishing his spectacles"}
     r = standard_gm(env, n)
     if env["mode"] == "resolve_tick":
         ids = [c["id"] for c in env["characters"]]
@@ -61,6 +69,7 @@ def world(monkeypatch):
     store, clock = MemoryStore(), Clock()
     prov, storage = FakeProvider(), MemoryImageStorage()
     CHECK["fail_next"] = 0
+    AUTO["on"], AUTO["calls"] = False, []
     PROPOSALS["portraits"], PROPOSALS["hack_style"] = [], False
     PROPOSALS["items"] = [{"prompt": "A wet stone road at dusk, a lone lamp, mist, wide shot, 1925", "caption": "The road to the hill", "visible_to": ["FIRST"]}]
     eng = Engine(store, ScriptedGM(gm_rule), now_fn=clock, images=ImageService(prov, storage, Usage(store, clock)))
@@ -435,3 +444,38 @@ def test_pictures_are_drawn_during_the_players_call(world, monkeypatch):
     r = eng.get_results("p_a", gid)
     assert r["pending_illustrations"] == 0
     assert {i["status"] for i in eng.list_images("p_a", gid)["images"]} == {"ready"}
+
+
+def test_server_writes_pictures_for_a_new_place_and_a_first_meeting(world):
+    eng, store, prov, storage, clock = world
+    AUTO["on"] = True
+    gid, cid = start(eng, "p_a")
+    sc = scenes(store, gid)
+    assert len(sc) == 1 and sc[0]["location_id"] == "loc_tolland_house" and sc[0]["auto"] is True and sc[0]["visible_to"] == [cid]
+    assert "lamp-lit street" in sc[0]["prompt"]
+    n_calls = len(AUTO["calls"])
+    eng.submit_action("p_a", gid, "free_query", "where am I", cid)
+    assert len(scenes(store, gid)) == 1 and len(AUTO["calls"]) == n_calls          # a place is drawn once
+    ws = eng._ws()
+    game = ws.get("game", gid)
+    ws.put("npc", f"{gid}:npc_old", {"id": "npc_old", "scope": {"adventure_id": None, "game_id": gid}, "name": "Mr Old", "role": "clerk", "trait": "stooped", "secret": "is the killer"})
+    ws.put("npc_state", f"{gid}:npc_old", {"npc_id": "npc_old", "game_id": gid, "status": "active", "met_by": [cid]})
+    chars = {c["id"]: c for c in ws.load_game_characters(gid)}
+    eng._auto_pictures(ws, game, chars, 1, {})
+    ws.commit()
+    p = [x for x in portraits(store, gid) if x["subject_id"] == "npc_old"]
+    assert len(p) == 1 and p[0]["name"] == "Mr Old" and p[0]["visible_to"] == [cid] and "spectacles" in p[0]["action"]
+    call = [c for c in AUTO["calls"] if c["task"] == "npc"][0]
+    assert call["npc"] == {"name": "Mr Old", "role": "clerk", "trait": "stooped"} and "killer" not in json.dumps(call)  # no secrets go to the model
+    ws = eng._ws()
+    eng._auto_pictures(ws, ws.get("game", gid), {c["id"]: c for c in ws.load_game_characters(gid)}, 1, {})  # already has a portrait
+    assert len([x for x in portraits(store, gid) if x["subject_id"] == "npc_old"]) == 1
+
+
+def test_a_place_the_model_could_not_describe_is_not_asked_again(world):
+    eng, store, prov, storage, clock = world
+    gid, cid = start(eng, "p_a")                                                    # AUTO is off: the model returns nothing usable
+    assert scenes(store, gid) == [] and store.get("game", gid)[0]["auto_places"] == ["loc_tolland_house"]
+    n = len(AUTO["calls"])
+    eng.submit_action("p_a", gid, "free_query", "where am I", cid)
+    assert len(AUTO["calls"]) == n

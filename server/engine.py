@@ -39,6 +39,17 @@ NARRATION_BRIEF = (
 )
 
 
+AUTO_PICTURE_SYSTEM = (
+    "You write prompts for an illustration model for a tabletop role-playing game. You receive one JSON object with a `task` and the facts "
+    "the players' characters have just perceived. Use only those facts and the era and place given; never add secrets, culprits, monsters or "
+    "events that are not in the facts, and never mention anything the characters have not seen. Reply with one JSON object and nothing else. "
+    "task `place`: {\"prompt\": a concrete, drawable view of the place (setting, light, composition, period details, mood), 30 to 900 characters, "
+    "no readable text, no signs, no letters, no people in the foreground unless the facts show them; \"caption\": at most 12 words saying what the picture shows}. "
+    "task `npc`: {\"appearance\": how the person looks (age, build, face, clothes fitting the era, bearing), 30 to 500 characters; if the facts do not say, "
+    "choose a plausible look; \"signature_action\": what the person is doing, at most 12 words}. Write in English. Do not describe the picture style; the server adds it."
+)
+
+
 class EngineError(Exception):
     pass
 
@@ -240,6 +251,7 @@ class Engine:
         game = ws.get("game", game_id)
         a = ap.Applier(ws, game_id, mode, iso(self.now()))
         a.snapshot_alive(ws.load_game_characters(game_id))
+        pre_met = self._met_map(ws, game_id)
         tick = (game.get("clock") or {}).get("tick", 0)  # the tick this response belongs to, before any clock change
         style = (game.get("settings") or {}).get("image_style")
         a.apply_ops(resp.get("state_changes"))
@@ -278,6 +290,10 @@ class Engine:
         a.check_lethality(game, chars, resp.get("decisions"))
         if post:
             post(ws, game, resp, by_id, a)
+        try:
+            self._auto_pictures(ws, game, by_id, tick, pre_met)
+        except Exception:
+            pass  # pictures must never get in the way of play
         ws.touch("game", game_id)
         a.bump_versions(by_id)
 
@@ -437,6 +453,91 @@ class Engine:
                     continue
             rec["visible_to"] = sorted(set(rec["visible_to"]) | set(vis))
             ws.touch("image", rec["id"])
+
+    # -- automatic pictures: the server notices a new place or a first meeting itself, so it does not depend on the AI Master remembering
+    def _met_map(self, ws, game_id):
+        """{npc_id: set of character ids that have met it}, from the NPC states and the characters' own `met` lists."""
+        out = {}
+        for ns in ws.find("npc_state", game_id=game_id):
+            out.setdefault(ns.get("npc_id"), set()).update(x for x in (ns.get("met_by") or []) if isinstance(x, str))
+        for c in ws.find("character", game_id=game_id):
+            for nid in ((c.get("knowledge") or {}).get("met") or []):
+                if isinstance(nid, str):
+                    out.setdefault(nid, set()).add(c["id"])
+        return out
+
+    @staticmethod
+    def _recent_facts(c, tick):
+        """What this character was just told (their own player-facing results of this response): safe to base a picture on."""
+        texts = []
+        for it in (c.get("inbox") or [])[-4:]:
+            if it.get("tick") != tick or it.get("delivered"):
+                continue
+            for f in ((it.get("result") or {}).get("facts") or []):
+                t = f.get("text") if isinstance(f, dict) else None
+                if isinstance(t, str) and t.strip():
+                    texts.append(t.strip()[:300])
+        return texts[:8]
+
+    def _auto_call(self, payload):
+        try:
+            return parse(self.gm.call(AUTO_PICTURE_SYSTEM, json.dumps(dict(payload, mode="auto_picture"), ensure_ascii=False), tier="light"))
+        except Exception:
+            return None
+
+    def _auto_pictures(self, ws, game, by_id, tick, pre_met):
+        """After a response is applied (any mode): when a character has arrived in a place that has never been drawn, or has met an NPC for the
+        first time and the NPC has no portrait, the server writes the prompt itself from what the characters just perceived and queues the picture.
+        A few per response at most; the AI Master's own proposals come first and are never duplicated."""
+        if (game.get("settings") or {}).get("illustrations") != "on" or not self._images_available():
+            return
+        images = ws.find("image", game_id=game["id"])
+        if sum(1 for im in images if im.get("status") == "pending") >= config.AUTO_PICTURES_MAX_PENDING:
+            return
+        adv = self._adventure(ws, game["adventure_id"])
+        setting = {"era": adv.get("era"), "place": adv.get("place")}
+        budget = config.AUTO_PICTURES_PER_RESPONSE
+        live = {cid: c for cid, c in by_id.items() if c.get("is_alive", True) and c.get("status") in ("active", "sidelined")}
+        # first meetings
+        post_met = self._met_map(ws, game["id"])
+        npcs = {n["id"]: n for n in ws.find("npc", game_id=game["id"]) + ws.find("npc", adventure_id=adv["id"]) if n.get("id")}
+        for nid, who in post_met.items():
+            new = sorted((who - pre_met.get(nid, set())) & set(live))
+            if budget <= 0 or not new or nid not in npcs or nid in by_id or self._portrait_rec(ws, game["id"], nid):
+                continue
+            n = npcs[nid]
+            out = self._auto_call({"task": "npc", **setting, "npc": {"name": n.get("name"), "role": n.get("role"), "trait": n.get("trait")},
+                                   "what_the_characters_just_saw": [t for cid in new for t in self._recent_facts(live[cid], tick)][:8]})
+            budget -= 1
+            app = (out or {}).get("appearance")
+            if isinstance(app, str) and 10 <= len(app.strip()) <= 600 and n.get("name"):
+                act = out.get("signature_action") if isinstance(out.get("signature_action"), str) else None
+                self._queue_portrait(ws, game, "npc", nid, str(n["name"]), app.strip(), act, new, tick)
+        # new places
+        drawn = {im.get("location_id") for im in ws.find("image", game_id=game["id"]) if im.get("kind") == "scene" and im.get("location_id")} | set(game.get("auto_places") or [])
+        places = {}
+        for cid, c in live.items():
+            loc = c.get("location") if isinstance(c.get("location"), dict) else {}
+            if loc.get("id") and loc["id"] not in drawn:
+                places.setdefault(loc["id"], {"name": loc.get("name"), "chars": []})["chars"].append(cid)
+        locs = {l["id"]: l for l in ws.find("location", game_id=game["id"]) + ws.find("location", adventure_id=adv["id"]) if l.get("id")}
+        for lid, p in places.items():
+            if budget <= 0:
+                break
+            name = p["name"] or (locs.get(lid) or {}).get("name") or lid.replace("loc_", "").replace("_", " ")
+            out = self._auto_call({"task": "place", **setting, "location": {"name": name},
+                                   "what_the_characters_just_saw": [t for cid in p["chars"] for t in self._recent_facts(live[cid], tick)][:8]})
+            budget -= 1
+            pr = (out or {}).get("prompt")
+            iid = short("img")
+            if isinstance(pr, str) and 10 <= len(pr.strip()) <= 1500:
+                ws.put("image", iid, {"id": iid, "kind": "scene", "game_id": game["id"], "tick": tick, "prompt": pr.strip(),
+                                      "caption": str((out or {}).get("caption") or name)[:200], "subjects": [], "location_id": lid[:60],
+                                      "visible_to": sorted(p["chars"]), "status": "pending", "attempts": 0, "auto": True,
+                                      "created_at": iso(self.now()), "notified": []})
+            else:  # the model gave nothing usable: remember the try so the place is not asked for again on every response
+                game.setdefault("auto_places", []).append(lid[:60])
+                ws.touch("game", game["id"])
 
     def _ensure_character_portraits(self):
         """Every confirmed character of a game with pictures on gets a portrait, whatever way it was made (and when pictures are turned on later)."""
@@ -603,17 +704,19 @@ class Engine:
     def _draw_for_player(self, player_id, game_id=None):
         """Draws this player's queued pictures during their own call (a few seconds each), so they are ready in the result instead of waiting hours
         for the scheduler. Never raises: pictures must never get in the way of play."""
+        t0 = time.monotonic()
         try:
             if not config.INLINE_IMAGE_SECONDS or not self._images_available():
-                return
+                return 0.0
             ws = self._ws()
             p = ws.get("player", player_id)
             gids = {game_id} if game_id else set((p or {}).get("games", []))
             if not any(True for _ in (r for r in self.store.find("image", status="pending") if r[0].get("game_id") in gids)):
-                return
+                return 0.0
             self.process_images(budget_seconds=config.INLINE_IMAGE_SECONDS, game_ids=gids)
         except Exception:
             pass
+        return round(time.monotonic() - t0, 1)
 
     def set_game_options(self, player_id, game_id, illustrations=""):
         """The host of a game (the player who created it, not the server administrator) can turn illustrations on or off."""
@@ -694,10 +797,12 @@ class Engine:
         return r
 
     def _finish(self, ws, player_id, game_id, extra=None):
-        self._draw_for_player(player_id, game_id)
+        secs = self._draw_for_player(player_id, game_id)
         self._sync_player_index(ws, [player_id])
         out = self._deliver(ws, player_id, game_id)
         ws.commit()
+        if secs:
+            out["picture_seconds"] = secs  # how long drawing this player's pictures added to the call (to judge whether it is too slow)
         out.update(extra or {})
         return out
 
@@ -1370,11 +1475,13 @@ class Engine:
 
     # ---- get_results / get_character / summary
     def get_results(self, player_id, game_id=None):
-        self._draw_for_player(player_id, game_id)
+        secs = self._draw_for_player(player_id, game_id)
         ws = self._ws()
         self._player(ws, player_id)
         out = self._deliver(ws, player_id, game_id)
         ws.commit()
+        if secs:
+            out["picture_seconds"] = secs
         return out
 
     def get_character(self, player_id, game_id, character_id=None):
