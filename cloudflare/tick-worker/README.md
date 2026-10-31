@@ -21,5 +21,5 @@ npx wrangler secret put CRON_SECRET
 ## Limits (free plan)
 5 cron triggers per account, 100,000 requests a day (this uses about 288), 15 minutes maximum per scheduled run (the engine answers within 300 s).
 
-## After it works
-The GitHub workflow `.github/workflows/tick.yml` becomes redundant. Keep it as a backup, or remove its `schedule:` block (the engine ignores a tick that is already resolved, so running both is harmless).
+## GitHub
+The GitHub workflow `.github/workflows/tick.yml` no longer has a schedule; it only runs by hand (Actions > tick > Run workflow).

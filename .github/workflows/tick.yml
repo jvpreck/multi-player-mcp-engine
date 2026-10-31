@@ -1,4 +1,5 @@
-# Scheduler: closes the ticks that are due and draws queued pictures, by calling the server's /internal/resolve_tick.
+# Manual trigger (Actions > tick > Run workflow) for the same call the Cloudflare Worker makes every 5 minutes: closes due ticks and draws queued pictures.
+# The automatic schedule moved to Cloudflare because GitHub's scheduled runs were skipped for hours.
 # Repository secrets needed (Settings > Secrets and variables > Actions):
 #   SERVER_URL   the base URL of the deployed server, e.g. https://your-app.vercel.app  (no trailing slash)
 #   CRON_SECRET  the same value as the server's CRON_SECRET environment variable
@@ -8,9 +9,7 @@
 # This repository is public, so the log shows counts only, never game ids or the response body.
 name: tick
 on:
-  schedule:
-    - cron: "*/15 * * * *"
-  workflow_dispatch:
+  workflow_dispatch:  # manual run only; the schedule is now the Cloudflare Worker in cloudflare/tick-worker (every 5 minutes)
 concurrency:
   group: tick
   cancel-in-progress: false

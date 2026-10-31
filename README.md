@@ -78,7 +78,7 @@ The free tier gives a strong model few requests (about 20 a day, 5 a minute) and
 | `light` | `gemini-3.5-flash-lite` | Everything a single player does between ticks: autonomous actions, queries, setup, joining |
 
 - **Counting.** Each request is counted per tier in the `gm_usage` table, per day (the provider's day, Pacific time) and per minute, so every server instance shares the count. The guards sit a little under the real limits.
-- **Strong model over its per-minute limit:** the tick is **deferred**, not degraded. It stays open and the next scheduler run (`/internal/resolve_tick`) retries it.
+- **Strong model over its per-minute limit:** the tick is **deferred**, not degraded. It stays open and the next scheduler run (every 5 minutes) retries it.
 - **Strong model's daily quota used up, or it fails with a quota or server error:** the tick is resolved by the light model, and the tick record shows `gm_model` and `gm_degraded` so you can see it. Other errors (a real bug) are not hidden by the fallback.
 - **Light model over its limits:** the player's request waits a few seconds, then gets a plain "the AI Master is busy, try again" message.
 - **Sizing.** Three or four games with 24-hour ticks use about 4 strong requests a day plus the character checks, far under the 18 a day guard. Retries after an invalid AI answer each count as a request. The host command `gm_usage` shows today's counts.
@@ -127,7 +127,7 @@ Each game has a setting `illustrations` (`on` by default when the server can dra
    - Illustrations (optional): `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` (an API token that may use Workers AI). Without them the option is simply not offered. Optional: `IMAGE_MODEL` (default `@cf/black-forest-labs/flux-2-klein-4b`), `IMAGE_SIZE` (1024), `IMAGE_REF_SIZE` (512), `IMAGE_STYLE` (only the fallback for a game without its own style), `IMAGE_RPD` (80), `IMAGE_RPM`, `IMAGE_URL_TTL_SECONDS`, `IMAGES_PER_RUN`
    - `GITHUB_TOKEN`: a **fine-grained personal access token** with *Contents: read-only* on the single repository `jvpreck/rpg_adventures`. The server uses it to read the adventures. Optional: `ADVENTURES_REPO` (default `jvpreck/rpg_adventures`), `ADVENTURES_REF` (default `main`), `ADVENTURES_CACHE_SECONDS` (default 300)
 3. Players add `https://<your-app>.vercel.app/mcp?key=<MCP_API_KEY>` as a custom connector.
-4. **Scheduler.** The workflow `.github/workflows/tick.yml` calls `/internal/resolve_tick` every 15 minutes (GitHub scheduled runs are best-effort and can start late, which is fine for ticks of hours). It needs two repository secrets, `SERVER_URL` and `CRON_SECRET` (the same value as the Vercel variable), and does nothing until both exist. It prints counts only, because this repository is public. GitHub turns scheduled workflows off after 60 days without repository activity: push anything, or run the workflow by hand, to wake it. You can also run it by hand from the Actions tab (Run workflow). Vercel's own cron on the Hobby plan runs at most once a day, so it is not used.
+4. **Scheduler.** The Cloudflare Worker in `cloudflare/tick-worker/` calls `/internal/resolve_tick` every 5 minutes (setup steps in its README; it needs the `SERVER_URL` and `CRON_SECRET` secrets). The workflow `.github/workflows/tick.yml` does the same call by hand (Run workflow).
 
 ## Tests
 
